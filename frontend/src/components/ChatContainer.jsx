@@ -348,58 +348,110 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     stopSpeaking();
   };
 
-  const renderMessage = (message, index) => (
-    <motion.div
-      key={`${message.role}-${index}`}
-      initial="hidden"
-      animate="visible"
-      variants={messageVariants}
-      className={`flex items-start gap-3 ${
-        message.role === "user" ? "justify-end" : "justify-start"
-      }`}
-    >
-      {message.role !== "user" && (
-        <motion.div
-          className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg"
-          whileHover={{ scale: 1.05 }}
-        >
-          <HiSparkles className="w-4 h-4 text-white" />
-        </motion.div>
-      )}
+  // Updated renderMessage function with improved alignment and formatting
+  const renderMessage = (message, index) => {
+    // Check if the message content is a JSON string and parse it if needed
+    let messageContent = message.content;
+    try {
+      if (typeof message.content === 'string' && message.content.startsWith('{') && message.content.includes('"content":')) {
+        const parsedContent = JSON.parse(message.content);
+        if (parsedContent.content) {
+          messageContent = parsedContent.content;
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing message content:', error);
+      // If parsing fails, use the original content
+      messageContent = message.content;
+    }
 
-      <div className={`max-w-[70%] px-4 py-3 rounded-2xl shadow-lg ${
-        message.role === "user" 
-          ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] text-white/90 border border-white/10" 
-          : "bg-[#1a1a1a] text-slate-200 border border-white/10"
-      }`}>
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="relative"
-        >
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-            {message.content}
-            {message.isTyping && (
-              <motion.span
-                animate={{ opacity: [0, 1] }}
-                transition={{ duration: 0.5, repeat: Infinity }}
-                className="inline-block ml-1 text-[#FAAE7B]"
-              >
-                ▋
-              </motion.span>
-            )}
-          </p>
-        </motion.div>
-      </div>
+    // Split content into lines
+    const lines = messageContent.split("\n").filter(line => line.trim() !== "");
 
-      {message.role === "user" && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-white/10 shadow-lg">
-          <FiUser className="w-4 h-4 text-[#FAAE7B]" />
+    return (
+      <motion.div
+        key={`${message.role}-${index}`}
+        initial="hidden"
+        animate="visible"
+        variants={messageVariants}
+        className={`flex items-start gap-3 ${
+          message.role === "user" ? "justify-end" : "justify-start"
+        }`}
+      >
+        {message.role !== "user" && (
+          <motion.div
+            className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg"
+            whileHover={{ scale: 1.05 }}
+          >
+            <HiSparkles className="w-4 h-4 text-white" />
+          </motion.div>
+        )}
+
+        <div className="max-w-[75%]">
+          <motion.div
+            className={`px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-lg ${
+              message.role === "user" 
+                ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] text-white/90 border border-white/10" 
+                : "bg-[#1a1a1a] text-slate-200 border border-white/10"
+            }`}
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="relative"
+            >
+              <div className="whitespace-pre-wrap break-words text-sm sm:text-base leading-relaxed">
+                {lines.map((line, i) => {
+                  // Check if this is a heading line (ends with a colon)
+                  if (line.trim().endsWith(':')) {
+                    return (
+                      <p key={i} className="font-extrabold text-lg sm:text-xl mb-2 mt-3 text-left">
+                        {line}
+                      </p>
+                    );
+                  }
+                  
+                  // Check if this is a numbered or bulleted list item
+                  const listItemMatch = line.match(/^(\d+\.|•|\*)\s+(.+)/);
+                  if (listItemMatch) {
+                    return (
+                      <p key={i} className="mb-1 pl-4 text-left flex">
+                        <span className="inline-block w-4 flex-shrink-0">{listItemMatch[1]}</span>
+                        <span className="pl-2">{listItemMatch[2]}</span>
+                      </p>
+                    );
+                  }
+                  
+                  // Regular line (no special formatting)
+                  return (
+                    <p key={i} className="mb-1 text-left">
+                      {line}
+                    </p>
+                  );
+                })}
+                {message.isTyping && (
+                  <motion.span
+                    animate={{ opacity: [0, 1] }}
+                    transition={{ duration: 0.5, repeat: Infinity }}
+                    className="inline-block ml-1 text-[#FAAE7B]"
+                  >
+                    ▋
+                  </motion.span>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
         </div>
-      )}
-    </motion.div>
-  )
+
+        {message.role === "user" && (
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-white/10 shadow-lg">
+            <FiUser className="w-4 h-4 text-[#FAAE7B]" />
+          </div>
+        )}
+      </motion.div>
+    );
+  };
 
   // Add loading skeleton component
   const LoadingSkeleton = () => (
@@ -443,6 +495,49 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     };
   }, [activeChat?.id]);
 
+  // Add this function to handle streaming updates for web search
+  const renderStreamingMessage = (message) => {
+    // Check if the message contains web search indicators
+    const isWebSearch = message.includes("Searching the web") || 
+                        message.includes("Looking up information") ||
+                        message.includes("Collecting data");
+    
+    if (!isWebSearch) return null;
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex justify-start mb-4"
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg">
+            <HiSparkles className="w-4 h-4 text-white" />
+          </div>
+          
+          <div className="max-w-[75%]">
+            <div className="px-4 py-3 rounded-xl bg-[#1a1a1a] text-slate-200 border border-white/10 shadow-lg">
+              <div className="whitespace-pre-wrap break-words text-sm sm:text-base leading-relaxed">
+                <p className="mb-1 text-left flex items-center">
+                  <span>{message}</span>
+                  <motion.span
+                    className="ml-2 inline-flex"
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    <span className="w-1.5 h-1.5 bg-[#cc2b5e] rounded-full mx-0.5" />
+                    <span className="w-1.5 h-1.5 bg-[#cc2b5e] rounded-full mx-0.5 animate-pulse" style={{ animationDelay: "0.2s" }} />
+                    <span className="w-1.5 h-1.5 bg-[#cc2b5e] rounded-full mx-0.5 animate-pulse" style={{ animationDelay: "0.4s" }} />
+                  </motion.span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
   return (
     <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] ${
       isOpen ? 'lg:ml-0' : 'lg:ml-0'
@@ -474,60 +569,13 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           <LoadingSkeleton />
         ) : (
           <>
-            {messages.map((message, index) => (
-              <motion.div
-                key={`${message.role}-${index}`}
-                initial="hidden"
-                animate="visible"
-                variants={messageVariants}
-                className={`flex items-start gap-2 sm:gap-3 ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                {message.role !== "user" && (
-                  <motion.div
-                    className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg"
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    <HiSparkles className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                  </motion.div>
-                )}
-
-                <div className={`max-w-[75%] sm:max-w-[70%] px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-lg ${
-                  message.role === "user" 
-                    ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] text-white/90 border border-white/10" 
-                    : "bg-[#1a1a1a] text-slate-200 border border-white/10"
-                }`}>
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.1 }}
-                    className="relative"
-                  >
-                    <p className="whitespace-pre-wrap break-words text-xs sm:text-sm leading-relaxed">
-                      {message.content}
-                      {message.isTyping && (
-                        <motion.span
-                          animate={{ opacity: [0, 1] }}
-                          transition={{ duration: 0.5, repeat: Infinity }}
-                          className="inline-block ml-1 text-[#FAAE7B]"
-                        >
-                          ▋
-                        </motion.span>
-                      )}
-                    </p>
-                  </motion.div>
-                </div>
-
-                {message.role === "user" && (
-                  <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-white/10 shadow-lg">
-                    <FiUser className="w-3 h-3 sm:w-4 sm:h-4 text-[#FAAE7B]" />
-                  </div>
-                )}
-              </motion.div>
-            ))}
+            {messages.map((message, index) => renderMessage(message, index))}
             
-            {isLoading && (
+            {isStreaming && streamingText && streamingText.includes("Searching") && (
+              renderStreamingMessage(streamingText)
+            )}
+            
+            {isLoading && !streamingText.includes("Searching") && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -605,12 +653,10 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
                   {/* Content with enhanced hover effects */}
                   <div className="relative z-10">
-                    <h3 className="text-white/90 font-medium text-sm mb-2  "
-                    >
+                    <h3 className="text-white/90 font-medium text-sm mb-2  ">
                       {item.title}
                     </h3>
-                    <p className="text-gray-400 text-xs line-clamp-2 "
-                    >
+                    <p className="text-gray-400 text-xs line-clamp-2 ">
                       {item.prompt}
                     </p>
                   </div>

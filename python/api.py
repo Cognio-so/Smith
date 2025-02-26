@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from uuid import uuid4
 import time
 from starlette.background import BackgroundTask
+import sys
 
 # Load environment variables
 load_dotenv()
@@ -34,6 +35,13 @@ app.add_middleware(
 
 # Add session management
 sessions = {}
+
+# Add the react-agent source directory to Python's path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'react-agent/src'))
+
+# Now the react_agent module can be imported
+from react_agent import graph
+from langchain_core.messages import HumanMessage, AIMessage
 
 async def get_session_id(request: Request):
     """Get or create a session ID from request headers."""
@@ -218,6 +226,62 @@ async def related_questions_endpoint(request: Request):
 
     except Exception as e:
         logger.error(f"Related questions error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/agent-chat")
+async def agent_chat_endpoint(request: Request, session_id: str = Depends(get_session_id)):
+    try:
+        # Update session last accessed time
+        sessions[session_id]['last_accessed'] = time.time()
+        
+        body = await request.json()
+        message = body.get('message', '').strip()
+        
+        if not message:
+            raise HTTPException(status_code=400, detail="No message provided")
+        
+        logger.info(f"Agent chat request from session {session_id}: {message[:50]}...")
+        
+        # Format the message for the agent
+        formatted_message = [("user", message)]
+        
+        # Setup agent response streaming
+        async def response_generator():
+            try:
+                # Call the React agent
+                result = await graph.ainvoke(
+                    {"messages": formatted_message},
+                    {"configurable": {"system_prompt": "You are a helpful AI assistant."}}
+                )
+                
+                # Get the final AI message
+                final_message = result["messages"][-1]
+                if hasattr(final_message, "content"):
+                    content = final_message.content
+                    if isinstance(content, str):
+                        yield f"data: {json.dumps({'content': content})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'content': str(content)})}\n\n"
+                
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                logger.error(f"Agent error: {str(e)}")
+                yield f"data: Error: {str(e)}\n\n"
+                yield "data: [DONE]\n\n"
+        
+        return StreamingResponse(
+            response_generator(),
+            media_type='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Content-Type': 'text/event-stream',
+                'X-Accel-Buffering': 'no'
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Agent chat error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

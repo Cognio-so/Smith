@@ -49,6 +49,7 @@ function MessageInput({ onSendMessage, isLoading }) {
   const abortControllerRef = useRef(null);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const speechTimeoutRef = useRef(null);
+  const [useAgent, setUseAgent] = useState(false);
 
   const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000';
 
@@ -242,7 +243,9 @@ function MessageInput({ onSendMessage, isLoading }) {
         stopSpeaking();
 
         const token = localStorage.getItem('token');
-        const response = await fetch(`${PYTHON_API_URL}/chat`, {
+        const endpoint = useAgent ? `${PYTHON_API_URL}/agent-chat` : `${PYTHON_API_URL}/chat`;
+        
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -473,6 +476,21 @@ function MessageInput({ onSendMessage, isLoading }) {
                   whileTap={{ scale: 0.95 }}
                 >
                   <IoMdAttach className="h-4 w-4 text-[#cc2b5e] hover:text-[#753a88] transition-colors duration-200" />
+                </motion.button>
+
+                <motion.button
+                  type="button"
+                  onClick={() => setUseAgent(prev => !prev)}
+                  className={`p-2 rounded-xl transition-all duration-200 ${
+                    useAgent ? 'bg-gradient-to-r from-[#cc2b5e] to-[#753a88]' : 'hover:bg-white/10'
+                  }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title={useAgent ? "Agent Mode" : "Standard Mode"}
+                >
+                  <TbBrain className={`h-4 w-4 ${
+                    useAgent ? 'text-white' : 'text-[#cc2b5e] hover:text-[#753a88]'
+                  } transition-colors duration-200`} />
                 </motion.button>
 
                 <motion.button
