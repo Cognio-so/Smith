@@ -1,6 +1,8 @@
 const dotenv = require("dotenv");
-// Load environment variables
-dotenv.config();
+// Load environment variables in development only
+if (process.env.NODE_ENV !== 'production') {
+    dotenv.config();
+}
 
 const express = require("express");
 const cookieParser = require("cookie-parser");
@@ -13,29 +15,26 @@ const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
 
-// Increase payload limit for voice data
-app.use(express.json({ limit: '10mb' }));
+// Adjust payload limit to match Vercel's limits
+app.use(express.json({ limit: '4.5mb' }));
 app.use(cookieParser());
 
-// CORS Configuration
+// CORS configuration
 app.use(cors({
-    origin: ['https://smith-frontend.vercel.app', 'http://localhost:5173'],
+    origin: process.env.NODE_ENV === 'production' 
+        ? 'https://smith-frontend.vercel.app'
+        : ['http://localhost:5173', 'https://smith-frontend.vercel.app'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Cookie'],
     exposedHeaders: ['set-cookie'],
+    maxAge: 3600
 }));
 
-// Middleware to handle CORS issues
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept');
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
-    }
-    next();
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // Health check endpoint
@@ -43,13 +42,27 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
 
-// API Routes
+app.get('/', (req, res) => {
+    res.send('API is running');
+});
+
+// Routes
 app.use("/auth", authRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/email", emailRoutes);
 
-// Connect to DB before handling requests
-connectDB();
+// Connect to database
+connectDB().catch(console.error);
 
-module.exports = app;  
+// Development server
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 5001;
+    app.listen(PORT, () => {
+        console.log(`✨ Development server running on port ${PORT}`);
+    });
+}
+
+// Export for Vercel
+module.exports = app;
+
