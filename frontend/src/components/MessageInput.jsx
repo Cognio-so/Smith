@@ -52,8 +52,7 @@ function MessageInput({ onSendMessage }) {
   const inputContainerRef = useRef(null);
   const [isAgentChat, setIsAgentChat] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || "https://smith-backend-psi.vercel.app"
-  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || "http://localhost:8000"
+  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000';
 
   const cancelCurrentRequest = () => {
     console.log('🛑 Attempting to cancel current request');
@@ -134,7 +133,7 @@ function MessageInput({ onSendMessage }) {
               const requestId = Date.now().toString();
               setIsProcessing(true);
               
-              const response = await fetch(`${API_URL}/api/voice-chat`, {
+              const response = await fetch(`${PYTHON_API_URL}/voice-chat`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -229,7 +228,7 @@ function MessageInput({ onSendMessage }) {
       abortControllerRef.current = new AbortController();
       currentRequestRef.current = requestId;
 
-      const response = await fetch(`${API_URL}/api/chat`, {
+      const response = await fetch(`${PYTHON_API_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -341,7 +340,7 @@ function MessageInput({ onSendMessage }) {
       abortControllerRef.current = new AbortController();
       currentRequestRef.current = requestId;
 
-      const response = await fetch(`${API_URL}/api/agent-chat`, {
+      const response = await fetch(`${PYTHON_API_URL}/agent-chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -436,7 +435,7 @@ function MessageInput({ onSendMessage }) {
       formData.append('file', file);
 
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/upload`, {
+      const response = await fetch('http://localhost:5000/api/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

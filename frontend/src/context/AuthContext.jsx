@@ -8,41 +8,38 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
-  const API_URL = import.meta.env.VITE_API_URL || "https://smith-backend-psi.vercel.app"
-
   // Check auth status on mount and when user changes
   useEffect(() => {
     const verifyUser = async () => {
       try {
-        const res = await fetch(`${API_URL}/auth/check`, {
-          method: 'GET',
-          credentials: 'include',
+        const res = await fetch("http://localhost:5000/auth/check", {
+          credentials: "include",
           headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
-        });
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+        })
         
         if (res.ok) {
-          const data = await res.json();
-          setUser(data);
+          const data = await res.json()
+          setUser(data)
         } else {
-          setUser(null);
+          setUser(null)
         }
       } catch (error) {
-        console.error("Auth verification failed:", error);
-        setUser(null);
+        console.error("Auth verification failed:", error)
+        setUser(null)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    verifyUser();
+    verifyUser()
   }, [])
 
   const checkAuthStatus = async () => {
     try {
-      const res = await fetch(`${API_URL}/auth/check`, {
+      const res = await fetch("http://localhost:5000/auth/check", {
         credentials: "include",
         headers: {
           "Accept": "application/json",
@@ -66,33 +63,28 @@ export const AuthProvider = ({ children }) => {
   }
 
   const login = async (email, password) => {
-    try {
-      const res = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
+    const res = await fetch("http://localhost:5000/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ email, password }),
+    })
 
-      const data = await res.json();
+    const data = await res.json()
 
-      if (!res.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      setUser(data);
-      navigate("/dashboard");
-      return data;
-    } catch (error) {
-      throw error;
+    if (!res.ok) {
+      throw new Error(data.message)
     }
+
+    setUser(data)
+    navigate("/dashboard") // Redirect to dashboard after login
+    return data
   }
 
   const signup = async (name, email, password) => {
-    const res = await fetch(`${API_URL}/auth/signup`, {
+    const res = await fetch("http://localhost:5000/auth/signup", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -114,7 +106,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await fetch(`${API_URL}/auth/logout`, {
+      await fetch("http://localhost:5000/auth/logout", {
         method: "POST",
         credentials: "include",
       })
