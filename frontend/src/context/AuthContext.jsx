@@ -8,11 +8,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
+  const API_URL = import.meta.env.VITE_API_URL || "https://smith-backend-psi.vercel.app"
+
   // Check auth status on mount and when user changes
   useEffect(() => {
     const verifyUser = async () => {
       try {
-        const res = await fetch("https://smith-backend-js.vercel.app/auth/check", {
+        const res = await fetch(`${API_URL}/auth/check`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -40,7 +42,7 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      const res = await fetch("https://smith-backend-js.vercel.app/auth/check", {
+      const res = await fetch(`${API_URL}/auth/check`, {
         credentials: "include",
         headers: {
           "Accept": "application/json",
@@ -65,7 +67,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const res = await fetch("https://smith-backend-js.vercel.app/auth/login", {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         credentials: 'include',
         headers: {
@@ -90,7 +92,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signup = async (name, email, password) => {
-    const res = await fetch("https://smith-backend-js.vercel.app/auth/signup", {
+    const res = await fetch(`${API_URL}/auth/signup`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -112,7 +114,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await fetch("https://smith-backend-js.vercel.app/auth/logout", {
+      await fetch(`${API_URL}/auth/logout`, {
         method: "POST",
         credentials: "include",
       })

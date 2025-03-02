@@ -16,6 +16,7 @@ import { SiOpenai } from "react-icons/si"
 import { TbBrain } from "react-icons/tb"
 import { SiClarifai } from "react-icons/si"
 import { v4 as uuidv4 } from 'uuid'
+import { API_URL } from '../utils/config'
 
 function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onUpdateMessages }) {
   const { user } = useAuth()
@@ -62,7 +63,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`https://smith-backend-js.vercel.app/api/chats/${activeChat.id}`, {
+        const response = await fetch(`${API_URL}/api/chats/${activeChat.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -129,13 +130,13 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       const token = localStorage.getItem('token');
       const isTemporaryChat = chatIdRef.current.startsWith('temp_');
       
-      const endpoint = isTemporaryChat 
-        ? 'https://smith-backend-js.vercel.app/api/chats/save'
-        : `https://smith-backend-js.vercel.app/api/chats/${chatIdRef.current}/update`;
+      const url = isTemporaryChat 
+        ? `${API_URL}/api/chats/save`
+        : `${API_URL}/api/chats/${chatIdRef.current}/update`;
       
       const method = isTemporaryChat ? 'POST' : 'PUT';
 
-      const response = await fetch(endpoint, {
+      const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',

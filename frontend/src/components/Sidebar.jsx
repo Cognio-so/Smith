@@ -8,6 +8,8 @@ import { formatDistanceToNow } from 'date-fns'
 import { Link } from "react-router-dom"
 import Settings from './SettingsPage'
 
+const API_URL = import.meta.env.VITE_API_URL || "https://smith-backend-psi.vercel.app"
+
 const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, isOpen = false }, ref) => {
   const { user, logout } = useAuth()
   const [showUserDetails, setShowUserDetails] = useState(false)
@@ -56,7 +58,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
             return;
         }
 
-        const response = await fetch('https://smith-backend-js.vercel.app/api/chats/save', {
+        const response = await fetch(`${API_URL}/api/chats/save`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -114,7 +116,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
     try {
       console.log('Fetching chat history');
       const token = localStorage.getItem('token');
-      const response = await fetch('https://smith-backend-js.vercel.app/api/chats/history/all', {
+      const response = await fetch(`${API_URL}/api/chats/history/all`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -191,7 +193,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://smith-backend-js.vercel.app/api/chats/${chatId}`, {
+      const response = await fetch(`${API_URL}/api/chats/${chatId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
