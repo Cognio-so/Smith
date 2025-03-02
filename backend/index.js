@@ -18,7 +18,7 @@ app.use(cookieParser());
 
 // Update CORS to allow both frontend ports
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: ['https://smith-frontend.vercel.app' , 'http://localhost:5173'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
