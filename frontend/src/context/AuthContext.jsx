@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const verifyUser = async () => {
       try {
-        const res = await fetch("http://localhost:5000/auth/check", {
+        const res = await fetch("https://smith-backend-js.vercel.app/auth/check", {
           credentials: "include",
           headers: {
             "Accept": "application/json",
@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      const res = await fetch("http://localhost:5000/auth/check", {
+      const res = await fetch("https://smith-backend-js.vercel.app/auth/check", {
         credentials: "include",
         headers: {
           "Accept": "application/json",
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   const login = async (email, password) => {
-    const res = await fetch("http://localhost:5000/auth/login", {
+    const res = await fetch("https://smith-backend-js.vercel.app/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -84,7 +84,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signup = async (name, email, password) => {
-    const res = await fetch("http://localhost:5000/auth/signup", {
+    const res = await fetch("https://smith-backend-js.vercel.app/auth/signup", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await fetch("http://localhost:5000/auth/logout", {
+      await fetch("https://smith-backend-js.vercel.app/auth/logout", {
         method: "POST",
         credentials: "include",
       })

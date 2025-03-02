@@ -101,7 +101,7 @@ Ensure you have the following installed:
    ```
 
 ## Usage
-1. Start the backend server at `http://localhost:5000`.
+1. Start the backend server at `https://smith-backend-js.vercel.app`.
 2. Run the frontend using Vite.
 3. Execute the Python script for AI model processing.
 4. Access the application in the browser at `http://localhost:5173/`.
