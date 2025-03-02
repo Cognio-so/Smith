@@ -6,13 +6,13 @@ import { AuthProvider, useAuth } from "./context/AuthContext"
 import Dashboard from './pages/Dashboard';
 import SettingsPage from './components/SettingsPage';
 import HomePage from './pages/HomePage';
-
+import LoadingSpinner from './components/LoadingSpinner';
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
-    return <div>Loading...</div>; // Or your loading component
+    return <div><LoadingSpinner /></div>; // Or your loading component
   }
   
   if (!user) {
