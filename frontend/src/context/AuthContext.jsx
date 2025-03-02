@@ -13,28 +13,29 @@ export const AuthProvider = ({ children }) => {
     const verifyUser = async () => {
       try {
         const res = await fetch("https://smith-backend-js.vercel.app/auth/check", {
-          credentials: "include",
+          method: 'GET',
+          credentials: 'include',
           headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-          },
-        })
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
         
         if (res.ok) {
-          const data = await res.json()
-          setUser(data)
+          const data = await res.json();
+          setUser(data);
         } else {
-          setUser(null)
+          setUser(null);
         }
       } catch (error) {
-        console.error("Auth verification failed:", error)
-        setUser(null)
+        console.error("Auth verification failed:", error);
+        setUser(null);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    verifyUser()
+    verifyUser();
   }, [])
 
   const checkAuthStatus = async () => {
@@ -63,24 +64,29 @@ export const AuthProvider = ({ children }) => {
   }
 
   const login = async (email, password) => {
-    const res = await fetch("https://smith-backend-js.vercel.app/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ email, password }),
-    })
+    try {
+      const res = await fetch("https://smith-backend-js.vercel.app/auth/login", {
+        method: "POST",
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
 
-    const data = await res.json()
+      const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.message)
+      if (!res.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      setUser(data);
+      navigate("/dashboard");
+      return data;
+    } catch (error) {
+      throw error;
     }
-
-    setUser(data)
-    navigate("/dashboard") // Redirect to dashboard after login
-    return data
   }
 
   const signup = async (name, email, password) => {

@@ -79,7 +79,13 @@ const Login = async(req,res)=>{
 
 const Logout = async(req,res)=>{
     try {
-        res.cookie("jwt","",{maxAge: 0});
+        res.cookie('jwt', '', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            path: '/',
+            maxAge: 0
+        });
         res.status(200).json({message: "Logged out successfully"});
     } catch (error) {
         console.log("Error in logout controller", error.message);
@@ -115,8 +121,8 @@ const generateToken = (userId, res) => {
         httpOnly: true,
         secure: true,
         sameSite: 'none',
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        domain: '.vercel.app'
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60 * 1000
     });
 };
 
