@@ -53,6 +53,10 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
 });
 
+app.get('/', (req, res) => {
+    res.send('Hello World');
+});
+
 app.use("/auth", authRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/chats", chatRoutes);
