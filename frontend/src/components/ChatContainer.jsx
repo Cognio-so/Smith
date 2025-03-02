@@ -511,7 +511,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         )}
 
         <div
-          className={`max-w-[85%] px-4 py-3 rounded-2xl shadow-lg ${
+          className={`max-w-[85%] sm:max-w-[75%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-lg ${
             message.role === "user"
               ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] text-white/90 border border-white/10"
               : `bg-[#1a1a1a] text-slate-200 border border-white/10 ${
@@ -638,28 +638,30 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       isOpen ? 'lg:ml-0' : 'lg:ml-0'
     } transition-all duration-300`}>
       {/* Header */}
-      <div className="sticky top-0 z-20 px-3 sm:px-4 py-3 sm:py-4 flex items-center bg-[#0a0a0a]/80 backdrop-blur-lg h-[60px]">
+      <div className="sticky top-0 z-20 px-2 sm:px-4 py-2 sm:py-4 flex items-center bg-[#0a0a0a]/80 backdrop-blur-lg h-[50px] sm:h-[60px]">
         <div className="flex items-center justify-between w-full">
-          <div className="w-full flex items-center justify-center lg:justify-start gap-2 sm:gap-3">
-            {/* Logo - Visible only on mobile */}
-            <div className="lg:hidden flex items-center gap-2">
-              <div className="w-8 h-8 sm:w-10 sm:h-10">
-                <img
-                  src="/vannipro.png"
-                  alt="Vaani.pro Logo"
-                  className="w-full h-full object-contain"
-                />
+          <div className="w-full flex items-center justify-center md:justify-start gap-2 sm:gap-3">
+            {/* Logo – Visible only on mobile (centered) */}
+            <div className="md:hidden flex items-center justify-center w-full">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10">
+                  <img
+                    src="/vannipro.png"
+                    alt="Vaani.pro Logo"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <span className="text-lg sm:text-xl font-display font-bold text-white leading-none py-1">
+                  Vaani.pro
+                </span>
               </div>
-              <span className="text-lg sm:text-xl font-display font-bold text-white leading-none py-1">
-                Vaani.pro
-              </span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide p-3 sm:p-4 space-y-8 sm:space-y-10 bg-[#0a0a0a]">
+      <div className="flex-1 overflow-y-auto scrollbar-hide p-2 sm:p-4 space-y-6 sm:space-y-8 bg-[#0a0a0a]">
         <div className="w-full max-w-3xl mx-auto">
           {isLoadingChat ? (
             <LoadingSkeleton />
@@ -678,16 +680,16 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         <div className="text-center mb-4">
           {isFirstMessage && (
             <>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-[#cc2b5e] via-[#cc2b5e] to-[#753a88] bg-clip-text text-transparent drop-shadow-[0_0px_20px_rgba(204,43,94,0.4)] animate-gradient">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-[#cc2b5e] via-[#cc2b5e] to-[#753a88] bg-clip-text text-transparent drop-shadow-[0_0px_20px_rgba(204,43,94,0.4)] animate-gradient">
                 Welcome to Vaani.pro
               </h1>
-              <span className="text-xl text-[#cc2b5e] mt-2 block">how may i help you Today ?</span>
+              <span className="text-lg sm:text-xl text-[#cc2b5e] mt-2 block">how may i help you Today ?</span>
             </>
           )}
         </div>
         {isFirstMessage && (
-          <div className="px-4 py-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl mx-auto">
+          <div className="px-2 sm:px-4 py-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 max-w-3xl mx-auto px-2 sm:px-4">
               {predefinedPrompts.map((item) => (
                 <motion.div
                   key={item.id}

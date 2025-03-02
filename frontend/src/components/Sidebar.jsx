@@ -292,7 +292,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
         />
       )}
 
-      <div className={`${isSidebarCollapsed ? 'w-14' : 'w-46'} h-screen bg-black/90 flex flex-col transition-all duration-300 ease-in-out border-r border-white/10 fixed lg:static z-40
+      <div className={`${isSidebarCollapsed ? 'w-14' : 'w-56 sm:w-64'} h-screen bg-black/90 flex flex-col transition-all duration-300 ease-in-out border-r border-white/10 fixed lg:static z-[100]
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Header */}
