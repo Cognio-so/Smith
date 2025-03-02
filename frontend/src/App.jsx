@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import SignupPage from './pages/SignupPage';
 import LoginPage from './pages/LoginPage';
 
@@ -16,6 +16,8 @@ portalContainer.id = 'overlay-root';
 document.body.appendChild(portalContainer);
 
 const App = () => {
+  
+
   return (
     <AuthProvider>
       <div className="relative">

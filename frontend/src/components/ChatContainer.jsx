@@ -4,9 +4,18 @@ import { motion, AnimatePresence } from "framer-motion"
 import { FiUser } from "react-icons/fi"
 import { BsChatLeftText } from "react-icons/bs"
 import { HiSparkles } from "react-icons/hi"
+import { FaRegCopy } from "react-icons/fa"
+import { LuCopyCheck } from "react-icons/lu"
 import { speakWithDeepgram, stopSpeaking } from '../utils/textToSpeech'
 import { sendEmailWithPDF } from '../utils/emailService'
 import { useAuth } from '../context/AuthContext'
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import { TbBrandGoogleFilled } from "react-icons/tb"
+import { SiOpenai } from "react-icons/si"
+import { TbBrain } from "react-icons/tb"
+import { SiClarifai } from "react-icons/si"
+import { v4 as uuidv4 } from 'uuid'
 
 function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onUpdateMessages }) {
   const { user } = useAuth()
@@ -16,12 +25,16 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const [streamingText, setStreamingText] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
+  const [copyStatus, setCopyStatus] = useState({})
   const messagesEndRef = useRef(null)
   const abortControllerRef = useRef(null)
   const [isLoadingChat, setIsLoadingChat] = useState(false)
   const saveInProgress = useRef(false)
   const pendingMessages = useRef([])
   const chatIdRef = useRef(null)
+  const [showModelSelector, setShowModelSelector] = useState(false)
+  const [selectedModel, setSelectedModel] = useState(null)
+  const [models, setModels] = useState([])
 
   // Initialize messages when activeChat changes
   useEffect(() => {
@@ -148,6 +161,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           chatIdRef.current = data.chat.id;
         }
 
+        // Make sure to update the messages state with the complete set
+        setMessages(messagesToSave);
         onUpdateMessages(messagesToSave);
         
         if (data.chat.title !== activeChat.title) {
@@ -308,149 +323,114 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     }
   }, [messages, onUpdateMessages]);
 
-  // Update the addMessage function
-  const addMessage = async (content, role) => {
-    if (!chatIdRef.current) return;
-
-    const newMessage = {
-      content,
-      role,
-      timestamp: new Date().toISOString()
-    };
-
-    setMessages(prevMessages => {
-      const updatedMessages = [...prevMessages, newMessage];
-      
-      // Only save after AI response is received
-      if (role === 'assistant') {
-        saveMessages(updatedMessages);
-      }
-      
-      return updatedMessages;
-    });
+  const addMessage = (content, role, isStreaming = false, voiceId = null) => {
+    const messageId = voiceId || uuidv4();
+    const isVoice = !!voiceId;
 
     if (role === "user") {
-      setIsFirstMessage(false);
+      setMessages(prev => [...prev, {
+        messageId,
+        content,
+        role,
+        timestamp: new Date().toISOString(),
+        isVoice
+      }]);
       setIsLoading(true);
+
+      pendingMessages.current.push({
+        messageId,
+        content,
+        role,
+        timestamp: new Date().toISOString(),
+        isVoice: !!voiceId
+      });
+
     } else if (role === "assistant") {
       setIsLoading(false);
+
+      setMessages(prev => {
+        // Find the last streaming message if it exists
+        const lastStreamingIndex = prev.findIndex(msg => msg.isStreaming);
+
+        if (isStreaming) {
+          if (lastStreamingIndex !== -1) {
+            // Update existing streaming message
+            const updatedMessages = [...prev];
+            updatedMessages[lastStreamingIndex].content = content;
+            return updatedMessages;
+          } else {
+            // Add new streaming message
+            return [...prev, {
+              messageId,
+              content,
+              role,
+              timestamp: new Date().toISOString(),
+              isStreaming: true
+            }];
+          }
+        } else {
+          // For final (non-streaming) message
+          if (lastStreamingIndex !== -1) {
+            // Update the streaming message to final
+            const updatedMessages = [...prev];
+            updatedMessages[lastStreamingIndex] = {
+              messageId,
+              content,
+              role,
+              timestamp: new Date().toISOString(),
+              isStreaming: false,
+              isFinal: true
+            };
+            return updatedMessages;
+          } else {
+            // Add new final message
+            return [...prev, {
+              messageId,
+              content,
+              role,
+              timestamp: new Date().toISOString(),
+              isFinal: true
+            }];
+          }
+        }
+      });
     }
+
+    // Debounce saving for ALL messages, including streaming updates
+    clearTimeout(pendingMessages.current.timeoutId);
+    if(role === 'assistant' && !isStreaming){
+        pendingMessages.current.push({
+            messageId,
+            content,
+            role,
+            timestamp: new Date().toISOString(),
+            isVoice: !!voiceId
+        });
+    }
+
+    pendingMessages.current.timeoutId = setTimeout(() => {
+      // Combine current messages with pending messages
+      const messagesToSave = [...messages];
+      pendingMessages.current.forEach(pendingMsg => {
+        if (!messagesToSave.some(msg => msg.messageId === pendingMsg.messageId)) {
+          messagesToSave.push(pendingMsg);
+        }
+      });
+
+      saveMessages(messagesToSave);
+      pendingMessages.current = [];
+    }, 2000);
   };
 
   // Handle pending saves when loading state changes
   useEffect(() => {
-    if (!isLoading && pendingMessages.current.length > 0) {
-      saveMessages(pendingMessages.current);
+    if (!isLoading && saveInProgress.current) {
+      saveMessages(messages);
     }
   }, [isLoading]);
 
   const handleStopResponse = () => {
     stopSpeaking();
-  };
-
-  // Updated renderMessage function with improved alignment and formatting
-  const renderMessage = (message, index) => {
-    // Check if the message content is a JSON string and parse it if needed
-    let messageContent = message.content;
-    try {
-      if (typeof message.content === 'string' && message.content.startsWith('{') && message.content.includes('"content":')) {
-        const parsedContent = JSON.parse(message.content);
-        if (parsedContent.content) {
-          messageContent = parsedContent.content;
-        }
-      }
-    } catch (error) {
-      console.error('Error parsing message content:', error);
-      // If parsing fails, use the original content
-      messageContent = message.content;
-    }
-
-    // Split content into lines
-    const lines = messageContent.split("\n").filter(line => line.trim() !== "");
-
-    return (
-      <motion.div
-        key={`${message.role}-${index}`}
-        initial="hidden"
-        animate="visible"
-        variants={messageVariants}
-        className={`flex items-start gap-3 ${
-          message.role === "user" ? "justify-end" : "justify-start"
-        }`}
-      >
-        {message.role !== "user" && (
-          <motion.div
-            className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg"
-            whileHover={{ scale: 1.05 }}
-          >
-            <HiSparkles className="w-4 h-4 text-white" />
-          </motion.div>
-        )}
-
-        <div className="max-w-[75%]">
-          <motion.div
-            className={`px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-lg ${
-              message.role === "user" 
-                ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] text-white/90 border border-white/10" 
-                : "bg-[#1a1a1a] text-slate-200 border border-white/10"
-            }`}
-          >
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="relative"
-            >
-              <div className="whitespace-pre-wrap break-words text-sm sm:text-base leading-relaxed">
-                {lines.map((line, i) => {
-                  // Check if this is a heading line (ends with a colon)
-                  if (line.trim().endsWith(':')) {
-                    return (
-                      <p key={i} className="font-extrabold text-lg sm:text-xl mb-2 mt-3 text-left">
-                        {line}
-                      </p>
-                    );
-                  }
-                  
-                  // Check if this is a numbered or bulleted list item
-                  const listItemMatch = line.match(/^(\d+\.|•|\*)\s+(.+)/);
-                  if (listItemMatch) {
-                    return (
-                      <p key={i} className="mb-1 pl-4 text-left flex">
-                        <span className="inline-block w-4 flex-shrink-0">{listItemMatch[1]}</span>
-                        <span className="pl-2">{listItemMatch[2]}</span>
-                      </p>
-                    );
-                  }
-                  
-                  // Regular line (no special formatting)
-                  return (
-                    <p key={i} className="mb-1 text-left">
-                      {line}
-                    </p>
-                  );
-                })}
-                {message.isTyping && (
-                  <motion.span
-                    animate={{ opacity: [0, 1] }}
-                    transition={{ duration: 0.5, repeat: Infinity }}
-                    className="inline-block ml-1 text-[#FAAE7B]"
-                  >
-                    ▋
-                  </motion.span>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {message.role === "user" && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-white/10 shadow-lg">
-            <FiUser className="w-4 h-4 text-[#FAAE7B]" />
-          </div>
-        )}
-      </motion.div>
-    );
   };
 
   // Add loading skeleton component
@@ -482,7 +462,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         title: 'New Chat',
         messages: []
     };
-    setActiveChat(newChat);
   };
 
   // Cleanup on unmount or chat change
@@ -490,53 +469,169 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     return () => {
       setIsLoading(false);
       saveInProgress.current = false;
-      pendingMessages.current = [];
       chatIdRef.current = null;
     };
   }, [activeChat?.id]);
 
-  // Add this function to handle streaming updates for web search
-  const renderStreamingMessage = (message) => {
-    // Check if the message contains web search indicators
-    const isWebSearch = message.includes("Searching the web") || 
-                        message.includes("Looking up information") ||
-                        message.includes("Collecting data");
-    
-    if (!isWebSearch) return null;
-    
+  // Function to copy text to clipboard
+  const copyToClipboard = (text, messageId) => {
+    navigator.clipboard.writeText(text).then(() => {
+      console.log('Text copied to clipboard');
+      setCopyStatus(prev => ({ ...prev, [messageId]: true }));
+      setTimeout(() => setCopyStatus(prev => ({ ...prev, [messageId]: false })), 2000);
+    }).catch(err => {
+      console.error('Could not copy text: ', err);
+    });
+  };
+
+  const renderMessage = (message, index) => {
+    // Add voice message indicator and styling
     return (
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="flex justify-start mb-4"
+        key={message.messageId}
+        initial="hidden"
+        animate="visible"
+        variants={messageVariants}
+        className={`flex items-start gap-3 mb-8 ${
+          message.role === "user" ? "justify-end" : "justify-start"
+        }`}
       >
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg">
-            <HiSparkles className="w-4 h-4 text-white" />
-          </div>
-          
-          <div className="max-w-[75%]">
-            <div className="px-4 py-3 rounded-xl bg-[#1a1a1a] text-slate-200 border border-white/10 shadow-lg">
-              <div className="whitespace-pre-wrap break-words text-sm sm:text-base leading-relaxed">
-                <p className="mb-1 text-left flex items-center">
-                  <span>{message}</span>
-                  <motion.span
-                    className="ml-2 inline-flex"
-                    animate={{ opacity: [0.4, 1, 0.4] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  >
-                    <span className="w-1.5 h-1.5 bg-[#cc2b5e] rounded-full mx-0.5" />
-                    <span className="w-1.5 h-1.5 bg-[#cc2b5e] rounded-full mx-0.5 animate-pulse" style={{ animationDelay: "0.2s" }} />
-                    <span className="w-1.5 h-1.5 bg-[#cc2b5e] rounded-full mx-0.5 animate-pulse" style={{ animationDelay: "0.4s" }} />
-                  </motion.span>
-                </p>
-              </div>
+        {message.role !== "user" && (
+          <motion.div
+            className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg"
+            whileHover={{ scale: 1.05 }}
+          >
+            {/* Show different icon for voice messages */}
+            {message.isVoice ? (
+              <BsChatLeftText className="w-4 h-4 text-white" />
+            ) : (
+              <HiSparkles className="w-4 h-4 text-white" />
+            )}
+          </motion.div>
+        )}
+
+        <div
+          className={`max-w-[85%] px-4 py-3 rounded-2xl shadow-lg ${
+            message.role === "user"
+              ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] text-white/90 border border-white/10"
+              : `bg-[#1a1a1a] text-slate-200 border border-white/10 ${
+                  message.isVoice ? 'voice-message' : ''
+                }`
+          }`}
+        >
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="relative"
+          >
+            {/* Add voice message indicator if it's a voice message */}
+            {message.isVoice && (
+              <div className="text-xs text-[#cc2b5e] mb-1">🎤 Voice Message</div>
+            )}
+            
+            {/* Rest of the message content rendering */}
+            <div style={{ overflowX: "auto", width: "100%" }}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  table: ({ node, ...props }) => <table style={{ width: '100%', borderCollapse: 'collapse' }} {...props} />,
+                  thead: ({ node, ...props }) => <thead style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }} {...props} />,
+                  tr: ({ node, ...props }) => <tr style={{ backgroundColor: node.index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'inherit' }} {...props} />,
+                  th: ({ node, ...props }) => <th style={{ border: '1px solid rgba(255, 255, 255, 0.2)', padding: '8px', textAlign: 'left' }} {...props} />,
+                  td: ({ node, ...props }) => <td style={{ border: '1px solid rgba(255, 255, 255, 0.2)', padding: '8px', textAlign: 'left' }} {...props} />,
+                  h1: ({ node, ...props }) => <h1 style={{ fontSize: '1.5em', fontWeight: 'bold' }} {...props} />,
+                  h2: ({ node, ...props }) => <h2 style={{ fontSize: '1.25em', fontWeight: 'bold' }} {...props} />,
+                  h3: ({ node, ...props }) => <h3 style={{ fontSize: '1.1em', fontWeight: 'bold' }} {...props} />,
+                  code: ({ node, inline, ...props }) => {
+                    const content = String(props.children).trim();
+                    return inline ? (
+                      <code {...props} />
+                    ) : (
+                      <pre {...props} style={{ position: 'relative' }}>
+                        <button
+                          onClick={() => copyToClipboard(content, message.messageId)}
+                          className="absolute top-1 right-1 text-xs text-white bg-gray-700 rounded px-2 py-1 hover:bg-gray-600"
+                        >
+                          {copyStatus[message.messageId] ? <LuCopyCheck /> : <FaRegCopy />}
+                        </button>
+                        <code>{content}</code>
+                      </pre>
+                    );
+                  },
+                  ul: ({ node, ...props }) => <ul {...props} />,
+                  ol: ({ node, ...props }) => <ol {...props} />,
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
             </div>
-          </div>
+          </motion.div>
         </div>
+
+        {message.role === "user" && (
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-white/10 shadow-lg">
+            {/* Show different icon for user voice messages */}
+            {message.isVoice ? (
+              <BsChatLeftText className="w-4 h-4 text-[#FAAE7B]" />
+            ) : (
+              <FiUser className="w-4 h-4 text-[#FAAE7B]" />
+            )}
+          </div>
+        )}
       </motion.div>
     );
   };
+
+  // Add this new render function for the model selector
+  const renderModelSelector = () => (
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={messageVariants}
+      className="flex items-start gap-3 mb-8 justify-start"
+    >
+      <motion.div
+        className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg"
+        whileHover={{ scale: 1.05 }}
+      >
+        <HiSparkles className="w-4 h-4 text-white" />
+      </motion.div>
+
+      <div className="max-w-[70%] px-4 py-3 rounded-2xl shadow-lg bg-[#1a1a1a] text-slate-200 border border-white/10">
+        <div className="grid grid-cols-3 gap-1">
+          {models.map((model) => (
+            <button
+              key={model.id}
+              onClick={() => {
+                setSelectedModel(model.id);
+                setShowModelSelector(false);
+              }}
+              className={`p-0.5 rounded-lg text-white/80 hover:bg-white/10 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
+                selectedModel === model.id ? 'bg-white/20' : ''
+              }`}
+            >
+              {model.id === "gemini-pro" ? (
+                <TbBrandGoogleFilled className="h-4 w-4 text-[#cc2b5e]" />
+              ) : model.id === "gpt-3.5-turbo" ? (
+                <SiOpenai className="h-4 w-4 text-[#cc2b5e]" />
+              ) : model.id === "claude-3-haiku" ? (
+                <TbBrain className="h-4 w-4 text-[#cc2b5e]" />
+              ) : model.id === "llama-v2-7b" ? (
+                <SiClarifai className="h-4 w-4 text-[#cc2b5e]" />
+              ) : (
+                <HiSparkles className="h-4 w-4 text-[#cc2b5e]" />
+              )}
+              <span className="text-center text-[7px] sm:text-[9px] leading-tight">
+                {model.name}
+              </span>
+              <span className="text-[6px] opacity-60">{model.cost}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
 
   return (
     <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] ${
@@ -564,50 +659,32 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide p-3 sm:p-4 space-y-4 sm:space-y-6 bg-[#0a0a0a]">
-        {isLoadingChat ? (
-          <LoadingSkeleton />
-        ) : (
-          <>
-            {messages.map((message, index) => renderMessage(message, index))}
-            
-            {isStreaming && streamingText && streamingText.includes("Searching") && (
-              renderStreamingMessage(streamingText)
-            )}
-            
-            {isLoading && !streamingText.includes("Searching") && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex justify-start"
-              >
-                <div className="flex items-center space-x-2 px-4 py-3 rounded-xl bg-[#1a1a1a] border border-white/10 shadow-lg">
-                  <motion.span
-                    className="w-2 h-2 bg-[#cc2b5e] rounded-full shadow-md"
-                    animate={{ y: ["0%", "-50%", "0%"] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: 0 }}
-                  />
-                  <motion.span
-                    className="w-2 h-2 bg-[#cc2b5e] rounded-full shadow-md"
-                    animate={{ y: ["0%", "-50%", "0%"] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 }}
-                  />
-                  <motion.span
-                    className="w-2 h-2 bg-[#cc2b5e] rounded-full shadow-md"
-                    animate={{ y: ["0%", "-50%", "0%"] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: 0.4 }}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </>
-        )}
-        
-        <div ref={messagesEndRef} />
+      <div className="flex-1 overflow-y-auto scrollbar-hide p-3 sm:p-4 space-y-8 sm:space-y-10 bg-[#0a0a0a]">
+        <div className="w-full max-w-3xl mx-auto">
+          {isLoadingChat ? (
+            <LoadingSkeleton />
+          ) : (
+            <>
+              {messages.map((message) => renderMessage(message, messages.indexOf(message)))}
+              {showModelSelector && renderModelSelector()}
+              <div ref={messagesEndRef} />
+            </>
+          )}
+        </div>
       </div>
 
       {/* Predefined Prompts - Enhanced with more intense glow effect */}
-      <div className={`w-full ${isFirstMessage ? 'absolute top-1/2 -translate-y-1/2' : 'relative'}`}>
+      <div className={`w-full ${isFirstMessage ? 'absolute top-1/2 -translate-y-1/2 z-[50]' : 'relative'}`}>
+        <div className="text-center mb-4">
+          {isFirstMessage && (
+            <>
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-[#cc2b5e] via-[#cc2b5e] to-[#753a88] bg-clip-text text-transparent drop-shadow-[0_0px_20px_rgba(204,43,94,0.4)] animate-gradient">
+                Welcome to Vaani.pro
+              </h1>
+              <span className="text-xl text-[#cc2b5e] mt-2 block">how may i help you Today ?</span>
+            </>
+          )}
+        </div>
         {isFirstMessage && (
           <div className="px-4 py-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl mx-auto">
@@ -653,10 +730,10 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
                   {/* Content with enhanced hover effects */}
                   <div className="relative z-10">
-                    <h3 className="text-white/90 font-medium text-sm mb-2  ">
+                    <h3 className="text-white/90 font-medium text-sm mb-2">
                       {item.title}
                     </h3>
-                    <p className="text-gray-400 text-xs line-clamp-2 ">
+                    <p className="text-gray-400 text-xs line-clamp-2">
                       {item.prompt}
                     </p>
                   </div>

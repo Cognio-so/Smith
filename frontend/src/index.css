@@ -420,3 +420,27 @@
   filter: blur(20px);
 }
 
+/* --- Table Styles --- */
+/* Global table styles (make sure these are consistent with component styles) */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0; /* Add some margin around tables */
+}
+
+th,
+td {
+  border: 1px solid rgba(255, 255, 255, 0.2); /* Light border for cells */
+  padding: 8px;
+  text-align: left;
+}
+
+th {
+  background-color: rgba(255, 255, 255, 0.1); /* Slightly lighter background for header */
+}
+
+/* Zebra striping for table rows (optional) */
+tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+

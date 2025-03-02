@@ -476,7 +476,7 @@ const HomePage = () => {
               transition={{ duration: 0.6 }}
             >
               <div className='flex items-center mb-4'>
-                <img src="/vannipro.png" alt="vaanipro" className='w-12 h-12' />
+                <img src="/vannipro.png" alt="vaanipro" className='w-16 h-12' />
                 <span className="ml-2 text-2xl font-bold">Vaani.pro</span>
               </div>
               <p className="text-gray-300">Transforming the world with Voice AI technology</p>

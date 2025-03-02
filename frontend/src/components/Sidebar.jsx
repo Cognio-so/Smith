@@ -217,6 +217,10 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
   // Mobile menu button handler
   const handleMobileMenuClick = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen)
+    // Ensure sidebar expands when menu is opened on mobile
+    if (!isSidebarCollapsed && window.innerWidth < 1024) {
+      setIsSidebarCollapsed(true);
+    }
   }
 
   // Update the chat list rendering in the return statement
@@ -234,8 +238,8 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
         {chats.map((chat) => (
           <div
             key={chat.id || chat.chatId}
-            className={`group px-2 py-2 rounded-lg cursor-pointer transition-all duration-300
-              hover:bg-white/5 flex items-center gap-2 mx-1
+            className={`group pl-0.5 pr-1 py-2 rounded-lg cursor-pointer transition-all duration-300
+              hover:bg-white/5 flex items-center gap-2 mx-0.5
               ${activeChat?.id === (chat.id || chat.chatId) ? 'bg-white/5' : ''}`}
             onClick={() => handleChatClick(chat)}
           >
@@ -275,9 +279,9 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
       {/* Mobile Menu Button */}
       <button
         onClick={handleMobileMenuClick}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-[#1a1a1a] border border-white/10 hover:bg-white/5 transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-50 p-1 rounded-lg bg-[#1a1a1a] border border-white/10 hover:bg-white/5 transition-colors"
       >
-        <HiMenuAlt2 className="h-5 w-5 text-[#cc2b5e]" />
+        <HiMenuAlt2 className="h-4 w-4 text-white" />
       </button>
 
       {/* Overlay for mobile */}
@@ -288,7 +292,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
         />
       )}
 
-      <div className={`${isSidebarCollapsed ? 'w-16' : 'w-64'} h-screen bg-[#0a0a0a] flex flex-col transition-all duration-300 ease-in-out border-r border-white/10 fixed lg:static z-40
+      <div className={`${isSidebarCollapsed ? 'w-14' : 'w-46'} h-screen bg-black/90 flex flex-col transition-all duration-300 ease-in-out border-r border-white/10 fixed lg:static z-40
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Header */}
@@ -334,14 +338,14 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
         </div>
 
         {/* New Chat Button - Fixed alignment */}
-        <div className="px-3 py-2 lg:mt-0 mt-4">
+        <div className="px-2 py-4 lg:mt-0 mt-4">
           <button
             onClick={handleNewChat}
-            className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors border border-white/10 ${
+            className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white/10 transition-colors border border-white/10 ${
               isSidebarCollapsed ? 'justify-center' : 'justify-start'
             }`}
           >
-            <FiPlus className="h-4 w-4 text-[#cc2b5e]" />
+            <FiPlus className="h-4 w-4 text-purple-600" />
             {!isSidebarCollapsed && (
               <span className="text-sm text-slate-200">New Chat</span>
             )}
@@ -349,19 +353,19 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
         </div>
 
         {/* Search Bar - Fixed alignment */}
-        <div className="px-3 py-2">
+        <div className="px-2 py-1">
           <div className={`relative flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : ''}`}>
             {!isSidebarCollapsed && (
               <div className="absolute left-2 flex items-center pointer-events-none">
-                <FiSearch className="h-4 w-4 text-[#cc2b5e]" />
+                <FiSearch className="h-4 w-4 text-purple-600" />
               </div>
             )}
             {isSidebarCollapsed ? (
               <button 
-                className="p-2 hover:bg-white/5 rounded-lg transition-colors flex items-center justify-center"
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center"
                 title="Search"
               >
-                <FiSearch className="h-4 w-4 text-[#cc2b5e]" />
+                <FiSearch className="h-4 w-4 text-purple-600" />
               </button>
             ) : (
               <input
@@ -369,79 +373,66 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
                 placeholder="Search chats..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#1a1a1a] rounded-lg py-2 pl-8 pr-4 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#cc2b5e]/50 border border-white/10"
+                className="w-full bg-black/90 rounded-lg py-2 pl-8 pr-4 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-white/5 border border-white/10"
               />
             )}
           </div>
         </div>
 
         {/* Chat List */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide px-2 py-1">
-          {renderChatList(categorizedChats.today, 'Today')}
-          {renderChatList(categorizedChats.yesterday, 'Yesterday')}
-          {renderChatList(categorizedChats.lastWeek, 'Last 7 Days')}
-          {renderChatList(categorizedChats.lastMonth, 'Last Month')}
-          {renderChatList(categorizedChats.older, 'Older')}
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-2 py-2">
+          {!isSidebarCollapsed && (
+            <>
+              {renderChatList(categorizedChats.today, 'Today')}
+              {renderChatList(categorizedChats.yesterday, 'Yesterday')}
+              {renderChatList(categorizedChats.lastWeek, 'Last 7 Days')}
+              {renderChatList(categorizedChats.lastMonth, 'Last Month')}
+              {renderChatList(categorizedChats.older, 'Older')}
+            </>
+          )}
         </div>
 
-        {/* Updated Profile Section with Reduced Icon Sizes */}
-        <div className="relative p-2 border-t border-white/10">
-          <div className={`flex items-center ${
-            isSidebarCollapsed 
-              ? 'flex-col space-y-1.5' 
-              : 'justify-between'
-          } gap-1`}>
+        {/* Profile Section */}
+        <div className="relative p-1 border-t border-white/5 mt-2">
+          <div className="flex flex-col justify-center items-center gap-2 py-2">
+            {/* Settings Button */}
             <button
-              className="p-1 bg-[#1a1a1a] rounded-lg hover:bg-white/5 transition-colors 
-                flex items-center justify-center border border-white/10 w-6 h-6"
-              onClick={() => !isSidebarCollapsed && setShowUserDetails(!showUserDetails)}
-              title={isSidebarCollapsed ? user?.name : "Profile"}
-            >
-              <FiUser className="h-3 w-3 text-[#cc2b5e]" />
-            </button>
-
-            <button
-              className="p-1 bg-[#1a1a1a] rounded-lg hover:bg-white/5 transition-colors 
-                flex items-center justify-center border border-white/10 w-6 h-6"
               onClick={() => setIsSettingsOpen(true)}
+              className={`${isSidebarCollapsed ? 'p-2' : 'w-full px-3 py-2'} hover:bg-white/10 rounded-lg transition-colors flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-start'}`}
               title="Settings"
             >
-              <FiSettings className="h-3 w-3 text-[#cc2b5e]" />
+              <div className="flex items-center gap-2">
+                <FiSettings className="h-5 w-5 text-purple-600" />
+                {!isSidebarCollapsed && <span className="text-sm text-slate-200">Settings</span>}
+              </div>
             </button>
 
+            {/* User Button */}
             <button
-              className="p-1 bg-[#1a1a1a] rounded-lg hover:bg-white/5 transition-colors 
-                flex items-center justify-center border border-white/10 w-6 h-6"
-              title="Upgrade"
+              className={`${isSidebarCollapsed ? 'p-2' : 'w-full px-3 py-2'} hover:bg-white/10 rounded-lg transition-colors flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-start'}`}
+              onClick={() => setShowUserDetails(!showUserDetails)}
+              title={user?.email}
             >
-              <HiSparkles className="h-3 w-3 text-[#cc2b5e]" />
-            </button>
-
-            <button
-              className="p-1 bg-[#1a1a1a] rounded-lg hover:bg-white/5 transition-colors 
-                flex items-center justify-center border border-white/10 w-6 h-6"
-              title="Download"
-            >
-              <FiDownload className="h-3 w-3 text-[#cc2b5e]" />
+              <div className="flex items-center gap-2">
+                <FiUser className="h-5 w-5 text-purple-600" />
+                {!isSidebarCollapsed && <span className="text-sm text-slate-200">{user?.email || ''}</span>}
+              </div>
             </button>
           </div>
-
+          
           {/* User Details Popup */}
           {showUserDetails && !isSidebarCollapsed && (
             <div className="absolute bottom-full mb-2 left-2 right-2 p-3 
-              bg-[#1a1a1a] rounded-lg shadow-lg border border-white/10 backdrop-blur-lg"
+              bg-black/90 rounded-lg shadow-lg border border-white/10 backdrop-blur-lg z-10"
             >
-              <h3 className="font-medium text-xs text-slate-100 truncate mb-1">
-                {user?.name}
-              </h3>
-              <p className="text-xs text-slate-400 mb-2 truncate">
+              <p className="text-xs text-white mb-3 truncate">
                 {user?.email}
               </p>
               <button 
                 onClick={logout}
-                className="flex items-center text-red-400 hover:text-red-300 text-xs w-full gap-1.5 transition-colors"
+                className="flex items-center text-purple-300 hover:text-purple-100 text-xs w-full gap-2 py-1 transition-colors"
               >
-                <FiLogOut className="h-3 w-3" />
+                <FiLogOut className="h-4 w-4" />
                 <span>Sign Out</span>
               </button>
             </div>

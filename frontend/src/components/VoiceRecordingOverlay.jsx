@@ -72,7 +72,7 @@ function VoiceRecordingOverlay({
     };
   }, []);
 
-  const overlayContent = (
+  return createPortal(
     <AnimatePresence>
       <motion.div 
         className="fixed inset-0 w-screen h-screen z-[99999]"
@@ -80,12 +80,8 @@ function VoiceRecordingOverlay({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        {/* Update background gradient - removed opacity */}
         <div className="absolute inset-0 bg-gradient-to-b from-[#dae2f8] to-[#d6a4a4]" />
-
-        {/* Content Container - removed any box-shadow */}
         <div className="relative h-full flex flex-col">
-          {/* Close Button - removed shadow */}
           <div className="absolute top-4 left-4">
             <motion.button
               onClick={onClose}
@@ -97,7 +93,6 @@ function VoiceRecordingOverlay({
             </motion.button>
           </div>
 
-          {/* Updated Messages Area */}
           <div className="flex-1 px-4 overflow-y-auto scrollbar-none pt-16 pb-48">
             <div className="max-w-2xl mx-auto space-y-4">
               {messages.map((msg, index) => (
@@ -115,64 +110,32 @@ function VoiceRecordingOverlay({
                         : 'bg-[#1a1020] shadow-lg'
                     }`}
                   >
-                    <p className="text-white/90 text-sm leading-relaxed">{msg.content}</p>
+                    <p className="text-white/90 text-sm leading-relaxed">
+                      {msg.content}
+                    </p>
                   </div>
                 </motion.div>
               ))}
-              
-              {isProcessing && (
-                <motion.div 
-                  className="flex justify-start"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <div className="bg-[#1a1020] rounded-2xl p-4 shadow-lg">
-                    <div className="flex items-center space-x-2">
-                      <p className="text-white/90 text-sm">Processing</p>
-                      <motion.div className="flex space-x-1">
-                        {[0, 1, 2].map((i) => (
-                          <motion.div
-                            key={i}
-                            className="w-1.5 h-1.5 bg-white/90 rounded-full"
-                            animate={{ y: ["0%", "-50%", "0%"] }}
-                            transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }}
-                          />
-                        ))}
-                      </motion.div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-              
               <div ref={messagesEndRef} />
             </div>
           </div>
 
-          {/* Bottom section */}
-          <div className="absolute bottom-0 left-0 right-0 h-48">
-            <Canvas 
-              camera={{ position: [0, 0, 3] }}
-              style={{ WebkitBackfaceVisibility: 'hidden' }}
-            >
-              <ambientLight intensity={0.5} />
-              <directionalLight position={[10, 10, 5]} intensity={1} />
-              <AnimatedSphere isActive={isUserSpeaking || isAISpeaking} />
-            </Canvas>
-            
+          <div className="absolute bottom-6 left-0 right-0 flex justify-center">
             <motion.span 
-              className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-white/90 text-sm"
+              className="text-white/90 text-sm bg-black/20 px-4 py-2 rounded-full"
               animate={{ opacity: [0.7, 1, 0.7] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
-              {isUserSpeaking ? "Listening..." : isAISpeaking ? "Speaking..." : "Try saying something..."}
+              {isUserSpeaking ? "Listening..." : 
+               isAISpeaking ? "Speaking..." : 
+               "Try saying something..."}
             </motion.span>
           </div>
         </div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
-
-  return createPortal(overlayContent, document.body);
 }
 
 export default VoiceRecordingOverlay; 
