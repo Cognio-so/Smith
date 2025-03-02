@@ -16,13 +16,23 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
-// Update CORS to allow both frontend ports
+// Update CORS configuration
 app.use(cors({
-    origin: ['https://smith-frontend.vercel.app' , 'http://localhost:5173'],
+    origin: ['https://smith-frontend.vercel.app', 'http://localhost:5173'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Cookie'],
+    exposedHeaders: ['set-cookie'],
 }));
+
+// Add this before your routes
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,UPDATE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept');
+    next();
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
