@@ -3,29 +3,43 @@ import { useNavigate } from "react-router-dom"
 
 const AuthContext = createContext()
 
+const API_URL = 'https://smith-backend-psi.vercel.app'
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
+  // Updated fetch configuration
+  const fetchWithCredentials = async (endpoint, options = {}) => {
+    const defaultOptions = {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      ...options
+    }
+
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, defaultOptions)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      return response
+    } catch (error) {
+      console.error('Fetch error:', error)
+      throw error
+    }
+  }
+
   // Check auth status on mount and when user changes
   useEffect(() => {
     const verifyUser = async () => {
       try {
-        const res = await fetch("https://smith-backend-psi.vercel.app/auth/check", {
-          credentials: "include",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-          },
-        })
-        
-        if (res.ok) {
-          const data = await res.json()
-          setUser(data)
-        } else {
-          setUser(null)
-        }
+        const response = await fetchWithCredentials('/auth/check')
+        const data = await response.json()
+        setUser(data)
       } catch (error) {
         console.error("Auth verification failed:", error)
         setUser(null)
@@ -39,21 +53,9 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      const res = await fetch("https://smith-backend-psi.vercel.app/auth/check", {
-        credentials: "include",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-        },
-      })
-      
-      if (!res.ok) {
-        throw new Error("Auth check failed")
-      }
-
-      const data = await res.json()
+      const response = await fetchWithCredentials('/auth/check')
+      const data = await response.json()
       setUser(data)
-      
     } catch (error) {
       console.error("Auth check failed:", error)
       setUser(null)
@@ -63,53 +65,40 @@ export const AuthProvider = ({ children }) => {
   }
 
   const login = async (email, password) => {
-    const res = await fetch("https://smith-backend-psi.vercel.app/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ email, password }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      throw new Error(data.message)
+    try {
+      const response = await fetchWithCredentials('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      })
+      
+      const data = await response.json()
+      setUser(data)
+      navigate("/dashboard")
+      return data
+    } catch (error) {
+      throw new Error(error.message || 'Login failed')
     }
-
-    setUser(data)
-    navigate("/dashboard") // Redirect to dashboard after login
-    return data
   }
 
   const signup = async (name, email, password) => {
-    const res = await fetch("https://smith-backend-psi.vercel.app/auth/signup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({ name, email, password }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      throw new Error(data.message)
+    try {
+      const response = await fetchWithCredentials('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password })
+      })
+      
+      const data = await response.json()
+      setUser(data)
+      navigate("/dashboard")
+      return data
+    } catch (error) {
+      throw new Error(error.message || 'Signup failed')
     }
-
-    setUser(data)
-    navigate("/dashboard") // Redirect to dashboard after signup
-    return data
   }
 
   const logout = async () => {
     try {
-      await fetch("https://smith-backend-psi.vercel.app/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      })
+      await fetchWithCredentials('/auth/logout', { method: 'POST' })
       setUser(null)
       navigate("/login")
     } catch (error) {

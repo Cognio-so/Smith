@@ -16,35 +16,30 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
-// Update CORS to allow both frontend ports
+// Updated CORS configuration for Vercel deployment
 app.use(cors({
-    origin: function(origin, callback) {
-        const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174', 'https://smith-frontend.vercel.app'];
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
+    origin: ['https://smith-frontend.vercel.app', 'http://localhost:5173', 'http://localhost:5174'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept'],
     exposedHeaders: ['set-cookie'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 }));
 
-// Enable trust proxy for secure cookies in production
+// Enable trust proxy for Vercel
 app.set('trust proxy', 1);
 
-// Middleware to handle cookies in production
+// Cookie configuration middleware
 app.use((req, res, next) => {
-    if (req.headers.origin === 'https://smith-frontend.vercel.app') {
-        res.cookie('jwt', req.cookies.jwt, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'none',
-            maxAge: 24 * 60 * 60 * 1000 // 24 hours
-        });
-    }
+    res.cookie('jwt', req.cookies?.jwt, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        domain: 'vercel.app',
+        path: '/',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
     next();
 });
 
