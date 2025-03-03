@@ -326,119 +326,66 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const addMessage = (content, role, isStreaming = false, voiceId = null) => {
     const messageId = voiceId || uuidv4();
     const isVoice = !!voiceId;
-
-    if (role === "user") {
-      setMessages(prev => [...prev, {
+    const newMessage = {
         messageId,
         content,
         role,
         timestamp: new Date().toISOString(),
+        isStreaming,
         isVoice,
-        model: selectedModel
-      }]);
-      setIsLoading(true);
+        model: selectedModel, // Always associate the model
+    };
 
-      pendingMessages.current.push({
-        messageId,
-        content,
-        role,
-        timestamp: new Date().toISOString(),
-        isVoice: !!voiceId,
-        model: selectedModel
-      });
+    setMessages(prevMessages => {
+        if (role === 'user') {
+            // Add user messages directly
+            return [...prevMessages, newMessage];
+        } else { // role === 'assistant'
+            const lastStreamingIndex = prevMessages.findIndex(
+                msg => msg.isStreaming && msg.role === 'assistant' && msg.messageId.startsWith('streaming-')
+            );
 
-    } else if (role === "assistant") {
-      setIsLoading(false);
-
-      setMessages(prev => {
-        const lastStreamingIndex = prev.findIndex(msg => msg.isStreaming && msg.role === 'assistant' && msg.model === selectedModel);
-
-        if (isStreaming) {
-          if (lastStreamingIndex !== -1) {
-            // Update existing streaming message *in place*
-            const updatedMessages = [...prev];
-            updatedMessages[lastStreamingIndex] = {
-              ...updatedMessages[lastStreamingIndex], // Keep existing properties
-              content: content, // Update the content
-            };
-            return updatedMessages;
-          } else {
-            // Add new streaming message, associating it with the selected model
-            return [...prev, {
-              messageId,
-              content,
-              role,
-              timestamp: new Date().toISOString(),
-              isStreaming: true,
-              isVoice,
-              model: selectedModel
-            }];
-          }
-        } else {
-          // For final (non-streaming) message
-          if (lastStreamingIndex !== -1) {
-            // Update the streaming message to final *in place*
-            const updatedMessages = [...prev];
-            updatedMessages[lastStreamingIndex] = {
-              ...updatedMessages[lastStreamingIndex], // Keep existing properties
-              content: content, // Update content
-              isStreaming: false, // Set isStreaming to false
-              isFinal: true, // Set isFinal to true
-              messageId: messageId, // Use the new messageId for the final message
-              isVoice,
-              model: selectedModel
-            };
-            return updatedMessages;
-          } else {
-            // Add new final message, associating it with the selected model
-            return [...prev, {
-              messageId,
-              content,
-              role,
-              timestamp: new Date().toISOString(),
-              isFinal: true,
-              isVoice,
-              model: selectedModel
-            }];
-          }
+            if (isStreaming) {
+                if (lastStreamingIndex !== -1) {
+                    // Update existing streaming message in place
+                    const updatedMessages = [...prevMessages];
+                    updatedMessages[lastStreamingIndex] = {
+                        ...updatedMessages[lastStreamingIndex],
+                        content, // Update content
+                    };
+                    return updatedMessages;
+                } else {
+                    // If no existing streaming message, add a new one with a unique ID
+                    newMessage.messageId = `streaming-${uuidv4()}`; // Use a prefix for streaming messages
+                    return [...prevMessages, newMessage];
+                }
+            } else {
+                // Final assistant message.  Update in place if streaming existed.
+                if (lastStreamingIndex !== -1) {
+                    const updatedMessages = [...prevMessages];
+                    updatedMessages[lastStreamingIndex] = {
+                        ...updatedMessages[lastStreamingIndex],
+                        content,
+                        isStreaming: false,
+                        messageId: newMessage.messageId, // Use the final messageId
+                    };
+                    return updatedMessages;
+                } else {
+                    // If no streaming message was found, add the final message directly
+                    return [...prevMessages, newMessage];
+                }
+            }
         }
-      });
-    }
-
-    // Debounce saving for ALL messages, including streaming updates
-    clearTimeout(pendingMessages.current.timeoutId);
-    if(role === 'assistant' && !isStreaming){
-        pendingMessages.current.push({
-            messageId,
-            content,
-            role,
-            timestamp: new Date().toISOString(),
-            isVoice: !!voiceId,
-            model: selectedModel
-        });
-    }
-
-    pendingMessages.current.timeoutId = setTimeout(() => {
-      // Combine current messages with pending messages
-      const messagesToSave = [...messages];
-      pendingMessages.current.forEach(pendingMsg => {
-        // Use messageId for comparison
-        if (!messagesToSave.some(msg => msg.messageId === pendingMsg.messageId)) {
-          messagesToSave.push(pendingMsg);
-        }
-      });
-
-      saveMessages(messagesToSave);
-      pendingMessages.current = [];
-    }, 2000);
+    });
   };
 
-  // Handle pending saves when loading state changes
+  // Call saveMessages after a final assistant message is received
   useEffect(() => {
-    if (!isLoading && saveInProgress.current) {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === 'assistant' && !lastMessage.isStreaming) {
       saveMessages(messages);
     }
-  }, [isLoading]);
+  }, [messages]);
 
   const handleStopResponse = () => {
     stopSpeaking();
