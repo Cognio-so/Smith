@@ -205,7 +205,15 @@ function MessageInput({ onSendMessage }) {
           stopRef.current();
         }
         setIsRecording(false);
-        setOverlayMessages([]);
+
+        // Add ALL overlay messages to the main chat
+        let counter = 0; // Add a counter for unique IDs
+        overlayMessages.forEach(msg => {
+          // Combine Date.now() with the counter
+          const baseId = msg.type === 'user' ? `voice` : `voice-response`;
+          const messageId = `${baseId}-${Date.now()}-${counter++}`; // Use counter
+          onSendMessage(msg.content, msg.type, false, messageId);
+        });
       }
     } catch (error) {
       console.error('Error closing voice interaction:', error);

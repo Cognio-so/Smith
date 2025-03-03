@@ -333,7 +333,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         content,
         role,
         timestamp: new Date().toISOString(),
-        isVoice
+        isVoice,
+        model: selectedModel
       }]);
       setIsLoading(true);
 
@@ -342,54 +343,62 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         content,
         role,
         timestamp: new Date().toISOString(),
-        isVoice: !!voiceId
+        isVoice: !!voiceId,
+        model: selectedModel
       });
 
     } else if (role === "assistant") {
       setIsLoading(false);
 
       setMessages(prev => {
-        // Find the last streaming message if it exists
-        const lastStreamingIndex = prev.findIndex(msg => msg.isStreaming);
+        const lastStreamingIndex = prev.findIndex(msg => msg.isStreaming && msg.role === 'assistant' && msg.model === selectedModel);
 
         if (isStreaming) {
           if (lastStreamingIndex !== -1) {
-            // Update existing streaming message
+            // Update existing streaming message *in place*
             const updatedMessages = [...prev];
-            updatedMessages[lastStreamingIndex].content = content;
+            updatedMessages[lastStreamingIndex] = {
+              ...updatedMessages[lastStreamingIndex], // Keep existing properties
+              content: content, // Update the content
+            };
             return updatedMessages;
           } else {
-            // Add new streaming message
+            // Add new streaming message, associating it with the selected model
             return [...prev, {
               messageId,
               content,
               role,
               timestamp: new Date().toISOString(),
-              isStreaming: true
+              isStreaming: true,
+              isVoice,
+              model: selectedModel
             }];
           }
         } else {
           // For final (non-streaming) message
           if (lastStreamingIndex !== -1) {
-            // Update the streaming message to final
+            // Update the streaming message to final *in place*
             const updatedMessages = [...prev];
             updatedMessages[lastStreamingIndex] = {
-              messageId,
-              content,
-              role,
-              timestamp: new Date().toISOString(),
-              isStreaming: false,
-              isFinal: true
+              ...updatedMessages[lastStreamingIndex], // Keep existing properties
+              content: content, // Update content
+              isStreaming: false, // Set isStreaming to false
+              isFinal: true, // Set isFinal to true
+              messageId: messageId, // Use the new messageId for the final message
+              isVoice,
+              model: selectedModel
             };
             return updatedMessages;
           } else {
-            // Add new final message
+            // Add new final message, associating it with the selected model
             return [...prev, {
               messageId,
               content,
               role,
               timestamp: new Date().toISOString(),
-              isFinal: true
+              isFinal: true,
+              isVoice,
+              model: selectedModel
             }];
           }
         }
@@ -404,7 +413,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
             content,
             role,
             timestamp: new Date().toISOString(),
-            isVoice: !!voiceId
+            isVoice: !!voiceId,
+            model: selectedModel
         });
     }
 
@@ -412,6 +422,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       // Combine current messages with pending messages
       const messagesToSave = [...messages];
       pendingMessages.current.forEach(pendingMsg => {
+        // Use messageId for comparison
         if (!messagesToSave.some(msg => msg.messageId === pendingMsg.messageId)) {
           messagesToSave.push(pendingMsg);
         }
