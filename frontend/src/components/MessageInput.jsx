@@ -52,7 +52,7 @@ function MessageInput({ onSendMessage }) {
   const inputContainerRef = useRef(null);
   const [isAgentChat, setIsAgentChat] = useState(false);
 
-  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000';
+  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000' || 'https://py-backend-algohype.replit.app';
 
   const cancelCurrentRequest = () => {
     console.log('🛑 Attempting to cancel current request');
