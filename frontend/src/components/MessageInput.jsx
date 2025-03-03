@@ -575,19 +575,6 @@ function MessageInput({ onSendMessage }) {
           <div className="flex items-center gap-2">
             <motion.button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                isAgentChat ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5'
-              }`}
-              whileHover={{ scale: isAgentChat ? 1 : 1.05 }}
-              whileTap={{ scale: isAgentChat ? 1 : 0.95 }}
-              disabled={isAgentChat}
-            >
-              <IoMdAttach className="h-4 w-4 text-[#cc2b5e]" />
-            </motion.button>
-
-            <motion.button
-              type="button"
               onClick={handleVoiceInteraction}
               className={`p-2 rounded-lg transition-all duration-200 ${
                 isAgentChat ? 'opacity-50 cursor-not-allowed' : 
@@ -600,24 +587,6 @@ function MessageInput({ onSendMessage }) {
               <FiMic className={`h-4 w-4 ${
                 isRecording ? 'text-red-400' : 'text-[#cc2b5e]'
               }`} />
-            </motion.button>
-
-            <motion.button
-              type="button"
-              onClick={() => {
-                setIsAgentChat(!isAgentChat);
-                // Reset model selector when switching to agent mode
-                if (!isAgentChat) {
-                  setShowModelSelector(false);
-                }
-              }}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                isAgentChat ? 'bg-blue-500/20' : 'hover:bg-white/5'
-              }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <FaRobot className={`h-4 w-4 ${isAgentChat ? 'text-blue-400' : 'text-[#cc2b5e]'}`} />
             </motion.button>
 
             <motion.button
