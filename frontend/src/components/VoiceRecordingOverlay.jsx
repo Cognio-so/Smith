@@ -120,15 +120,22 @@ function VoiceRecordingOverlay({
             </div>
           </div>
 
-          <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+          <div className="absolute bottom-0 left-0 right-0 h-48">
+            <Canvas 
+              camera={{ position: [0, 0, 3] }}
+              style={{ WebkitBackfaceVisibility: 'hidden' }}
+            >
+              <ambientLight intensity={0.5} />
+              <directionalLight position={[10, 10, 5]} intensity={1} />
+              <AnimatedSphere isActive={isUserSpeaking || isAISpeaking} />
+            </Canvas>
+            
             <motion.span 
-              className="text-white/90 text-sm bg-black/20 px-4 py-2 rounded-full"
+              className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-white/90 text-sm"
               animate={{ opacity: [0.7, 1, 0.7] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
-              {isUserSpeaking ? "Listening..." : 
-               isAISpeaking ? "Speaking..." : 
-               "Try saying something..."}
+              {isUserSpeaking ? "Listening..." : isAISpeaking ? "Speaking..." : "Try saying something..."}
             </motion.span>
           </div>
         </div>
