@@ -29,7 +29,6 @@ function MessageInput({ onSendMessage }) {
   const [models, setModels] = useState([
     { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Cheapest" },
     { id: "gemini-flash-2.0", name: "Gemini-flash-2.0", cost: "Low" },
-    
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
@@ -37,7 +36,6 @@ function MessageInput({ onSendMessage }) {
   const [error, setError] = useState('');
   const [response, setResponse] = useState('');
   const [sessionId, setSessionId] = useState(() => {
-    // Get existing session ID or create a new one
     const existingId = localStorage.getItem('chatSessionId');
     if (existingId) return existingId;
     const newId = `session_${Date.now()}`;
@@ -69,7 +67,6 @@ function MessageInput({ onSendMessage }) {
     console.log('🎤 Speech Start Detected');
     setIsUserSpeaking(true);
     
-    // Cancel ongoing AI response
     if (abortControllerRef.current) {
       console.log('🛑 Cancelling AI response due to user speech');
       cancelCurrentRequest();
@@ -114,18 +111,14 @@ function MessageInput({ onSendMessage }) {
 
           if (!data?.content) return;
 
-          // Only process final transcripts
           if (data.isFinal && data.confidence >= 0.7) {
             const userMessage = data.content.trim();
             console.log('Final transcript received:', userMessage);
             
-            // Generate a unique messageId for this voice interaction
             const voiceMessageId = `voice-${Date.now()}`;
             
-            // Add message to overlay
             setOverlayMessages(prev => [...prev, { type: 'user', content: userMessage }]);
             
-            // Add user message to main chat BEFORE making the API call
             onSendMessage(userMessage, "user", false, voiceMessageId);
             
             try {
@@ -158,16 +151,13 @@ function MessageInput({ onSendMessage }) {
               if (responseData.success && responseData.response) {
                 const aiResponse = responseData.response.trim();
                 
-                // Add message to overlay
                 setOverlayMessages(prev => [...prev, { 
                   type: 'assistant', 
                   content: aiResponse 
                 }]);
                 
-                // Add AI response to main chat
                 onSendMessage(aiResponse, "assistant", false, `${voiceMessageId}-response`);
                 
-                // Speak the response
                 setIsAISpeaking(true);
                 try {
                   await speakWithDeepgram(aiResponse, responseData.language);
@@ -249,7 +239,7 @@ function MessageInput({ onSendMessage }) {
       const reader = response.body.getReader();
       let buffer = '';
       let lastUpdateTime = Date.now();
-      const updateInterval = 50; // Throttle updates
+      const updateInterval = 50;
       let accumulatedContent = '';
       let isFirstChunk = true;
 
@@ -260,9 +250,8 @@ function MessageInput({ onSendMessage }) {
         const chunk = new TextDecoder().decode(value);
         buffer += chunk;
         
-        // Process complete SSE messages
         const lines = buffer.split('\n\n');
-        buffer = lines.pop() || ''; // Keep incomplete chunk
+        buffer = lines.pop() || '';
         
         for (const message of lines) {
           if (message.startsWith('data: ')) {
@@ -276,18 +265,14 @@ function MessageInput({ onSendMessage }) {
               const parsedData = JSON.parse(data);
               
               if (parsedData.content && currentRequestRef.current === requestId) {
-                // Accumulate the content
                 accumulatedContent += parsedData.content;
                 
-                // Throttle UI updates
                 const now = Date.now();
                 if (now - lastUpdateTime >= updateInterval) {
-                  // For the first chunk, create a new message
-                  // For subsequent chunks, update the existing message
                   onSendMessage(
                     accumulatedContent, 
                     "assistant", 
-                    true // Always mark as streaming during the loop
+                    true
                   );
                   
                   if (isFirstChunk) {
@@ -304,8 +289,6 @@ function MessageInput({ onSendMessage }) {
         }
       }
 
-      // Only send the final message if we have accumulated content
-      // and mark it as NOT streaming (isStreaming = false)
       if (accumulatedContent.trim() && currentRequestRef.current === requestId) {
         onSendMessage(accumulatedContent.trim(), "assistant", false);
       }
@@ -359,7 +342,7 @@ function MessageInput({ onSendMessage }) {
       const reader = response.body.getReader();
       let buffer = '';
       let lastUpdateTime = Date.now();
-      const updateInterval = 50; // Throttle updates
+      const updateInterval = 50;
       let accumulatedContent = '';
       let isFirstChunk = true;
 
@@ -371,7 +354,7 @@ function MessageInput({ onSendMessage }) {
         buffer += chunk;
 
         const lines = buffer.split('\n\n');
-        buffer = lines.pop() || ''; // Keep incomplete chunk
+        buffer = lines.pop() || '';
 
         for (const message of lines) {
           if (message.startsWith('data: ')) {
@@ -392,7 +375,7 @@ function MessageInput({ onSendMessage }) {
                   onSendMessage(
                     accumulatedContent,
                     "assistant",
-                    true // Always mark as streaming during the loop
+                    true
                   );
 
                   if (isFirstChunk) {
@@ -450,7 +433,6 @@ function MessageInput({ onSendMessage }) {
       const data = await response.json();
       setUploadedFile(data.fileUrl);
       
-      // Send a message about the uploaded file
       onSendMessage(`Uploaded file: ${file.name}`, "user");
     } catch (error) {
       console.error('Upload error:', error);
@@ -459,12 +441,9 @@ function MessageInput({ onSendMessage }) {
   };
 
   const stopSpeaking = () => {
-    // Add any cleanup for ongoing speech synthesis
     setIsAISpeaking(false);
-    // You might need to add a method to stop ongoing speech in your speakWithDeepgram utility
   };
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       cancelCurrentRequest();
@@ -482,7 +461,6 @@ function MessageInput({ onSendMessage }) {
   }, []);
 
   useEffect(() => {
-    // Initialize session ID if not exists
     if (!sessionId) {
       const newSessionId = `session_${Date.now()}`;
       setSessionId(newSessionId);
@@ -492,10 +470,9 @@ function MessageInput({ onSendMessage }) {
 
   useEffect(() => {
     if (showModelSelector && inputContainerRef.current) {
-      // Determine available space below the input container
       const rect = inputContainerRef.current.getBoundingClientRect();
       const availableBottom = window.innerHeight - rect.bottom;
-      const requiredHeight = 150; // fixed height of model selector
+      const requiredHeight = 150;
       if (availableBottom < requiredHeight) {
         setSelectorPlacement("top");
       } else {
@@ -505,7 +482,7 @@ function MessageInput({ onSendMessage }) {
   }, [showModelSelector]);
 
   return (
-    <div className="px-2 sm:px-4 py-1 sm:py-4 overflow-hidden">
+    <div className="px-2 sm:px-4 py-2 sm:py-4 overflow-hidden">
       <motion.form
         ref={inputContainerRef}
         onSubmit={(e) => {
@@ -516,9 +493,8 @@ function MessageInput({ onSendMessage }) {
             handleSubmit(e);
           }
         }}
-        className="group relative w-full max-w-3xl mx-auto flex flex-col gap-2 bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3"
+        className="group relative w-full max-w-2xl sm:max-w-3xl md:max-w-4xl mx-auto flex flex-col gap-1 sm:gap-2 bg-[#1a1a1a] border border-white/10 rounded-xl px-2 sm:px-4 py-2 sm:py-3 mb-0"
       >
-        {/* Top Section: Text Input */}
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -535,7 +511,7 @@ function MessageInput({ onSendMessage }) {
             }
           }}
           placeholder={isAgentChat ? "Chat with AI Agent..." : "Type a message..."}
-          className="flex-1 bg-transparent text-sm sm:text-base text-white/90 placeholder:text-white/40 focus:outline-none resize-none overflow-hidden min-h-[44px] max-h-[120px]"
+          className="flex-1 bg-transparent text-xs sm:text-sm md:text-base text-white/90 placeholder:text-white/40 focus:outline-none resize-none overflow-hidden min-h-[36px] sm:min-h-[44px] max-h-[100px] sm:max-h-[120px]"
           rows={1}
           style={{ height: 'auto' }}
           onInput={(e) => {
@@ -544,12 +520,11 @@ function MessageInput({ onSendMessage }) {
           }}
         />
 
-        {/* Bottom Section: Model Selector and Icons */}
         <div className="flex items-center justify-between">
           <motion.button
             type="button"
             onClick={() => setShowModelSelector(!showModelSelector)}
-            className={`flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 rounded-lg transition-all duration-200 ${
+            className={`flex items-center gap-1 sm:gap-2 p-1 sm:p-1.5 md:p-2 rounded-lg transition-all duration-200 ${
               isAgentChat ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5'
             }`}
             whileHover={{ scale: isAgentChat ? 1 : 1.05 }}
@@ -557,26 +532,39 @@ function MessageInput({ onSendMessage }) {
             disabled={isAgentChat}
           >
             {selectedModel === "gemini-pro" ? (
-              <TbBrandGoogleFilled className="h-5 w-5 text-[#cc2b5e]" />
+              <TbBrandGoogleFilled className="h-4 w-4 sm:h-5 sm:w-5 text-[#cc2b5e]" />
             ) : selectedModel === "gpt-3.5-turbo" ? (
-              <SiOpenai className="h-5 w-5 text-[#cc2b5e]" />
+              <SiOpenai className="h-4 w-4 sm:h-5 sm:w-5 text-[#cc2b5e]" />
             ) : selectedModel === "claude-3-haiku" ? (
-              <TbBrain className="h-5 w-5 text-[#cc2b5e]" />
+              <TbBrain className="h-4 w-4 sm:h-5 sm:w-5 text-[#cc2b5e]" />
             ) : selectedModel === "llama-v2-7b" ? (
-              <SiClarifai className="h-5 w-5 text-[#cc2b5e]" />
+              <SiClarifai className="h-4 w-4 sm:h-5 sm:w-5 text-[#cc2b5e]" />
             ) : (
-              <HiSparkles className="h-5 w-5 text-[#cc2b5e]" />
+              <HiSparkles className="h-4 w-4 sm:h-5 sm:w-5 text-[#cc2b5e]" />
             )}
-            <span className="text-[10px] sm:text-xs text-[#cc2b5e]">
+            <span className="text-[9px] sm:text-[10px] md:text-xs text-[#cc2b5e]">
               {models.find(m => m.id === selectedModel)?.name}
             </span>
           </motion.button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <motion.button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className={`p-1 sm:p-2 rounded-lg transition-all duration-200 ${
+                isAgentChat ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5'
+              }`}
+              whileHover={{ scale: isAgentChat ? 1 : 1.05 }}
+              whileTap={{ scale: isAgentChat ? 1 : 0.95 }}
+              disabled={isAgentChat}
+            >
+              <IoMdAttach className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />
+            </motion.button>
+
             <motion.button
               type="button"
               onClick={handleVoiceInteraction}
-              className={`p-2 rounded-lg transition-all duration-200 ${
+              className={`p-1 sm:p-2 rounded-lg transition-all duration-200 ${
                 isAgentChat ? 'opacity-50 cursor-not-allowed' : 
                 isRecording ? 'bg-red-500/20' : 'hover:bg-white/5'
               }`}
@@ -584,21 +572,38 @@ function MessageInput({ onSendMessage }) {
               whileTap={{ scale: isAgentChat ? 1 : 0.95 }}
               disabled={isAgentChat}
             >
-              <FiMic className={`h-4 w-4 ${
+              <FiMic className={`h-3 w-3 sm:h-4 sm:w-4 ${
                 isRecording ? 'text-red-400' : 'text-[#cc2b5e]'
               }`} />
             </motion.button>
 
             <motion.button
+              type="button"
+              onClick={() => {
+                setIsAgentChat(!isAgentChat);
+                if (!isAgentChat) {
+                  setShowModelSelector(false);
+                }
+              }}
+              className={`p-1 sm:p-2 rounded-lg transition-all duration-200 ${
+                isAgentChat ? 'bg-blue-500/20' : 'hover:bg-white/5'
+              }`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <FaRobot className={`h-3 w-3 sm:h-4 sm:w-4 ${isAgentChat ? 'text-blue-400' : 'text-[#cc2b5e]'}`} />
+            </motion.button>
+
+            <motion.button
               type="submit"
               disabled={isSubmitting || !message.trim()}
-              className={`p-2 rounded-lg transition-all duration-200 ${
+              className={`p-1 sm:p-2 rounded-lg transition-all duration-200 ${
                 message.trim() ? 'bg-[#cc2b5e] hover:bg-[#cc2b5e]/90' : 'hover:bg-white/5'
               }`}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <FiSend className={`h-4 w-4 ${
+              <FiSend className={`h-3 w-3 sm:h-4 sm:w-4 ${
                 message.trim() ? 'text-white' : 'text-[#cc2b5e]'
               }`} />
             </motion.button>
@@ -613,54 +618,57 @@ function MessageInput({ onSendMessage }) {
           accept=".pdf,.doc,.docx,.txt,.mp3,.wav,.mp4"
         />
 
-        {/* Add the model selector inside the form */}
-        <AnimatePresence>
-          {showModelSelector && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="fixed bottom-[calc(100%+0.5rem)] w-[250px] sm:w-[300px] bg-black rounded-xl p-1.5 border border-white/10 z-[9999] h-[120px]"
-              style={{
-                bottom: `calc(${inputContainerRef.current?.getBoundingClientRect().height || 0}px + 1rem)`,
-                left: `${inputContainerRef.current?.getBoundingClientRect().left - 60}px`
-              }}
-            >
-              <div className="grid grid-cols-3 gap-1">
-                {models.map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => {
-                      setSelectedModel(model.id);
-                      setShowModelSelector(false);
-                    }}
-                    className={`p-0.5 rounded-lg text-white/80 hover:bg-white/10 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
-                      selectedModel === model.id ? 'bg-white/20' : ''
-                    }`}
-                  >
-                    {model.id === "gpt-3.5-turbo" ? (
-                      <SiOpenai className="h-6 w-6 text-[#cc2b5e]" />
-                    ) : model.id === "gpt-4o-mini" ? (
-                      <SiOpenai className="h-6 w-6 text-[#cc2b5e]" />
-                    ) : model.id === "gemini-flash-2.0" ? (
-                      <TbBrandGoogleFilled className="h-6 w-6 text-[#cc2b5e]" />
-                    ) : model.id === "claude-3.5-haiku" ? (
-                      <TbBrain className="h-6 w-6 text-[#cc2b5e]" />
-                    ) : model.id === "llama-3.3" ? (
-                      <SiClarifai className="h-5 w-5 text-[#cc2b5e]" />
-                    ) : (
-                      <HiSparkles className="h-5 w-5 text-[#cc2b5e]" />
-                    )}
-                    <span className="text-center text-[7px] sm:text-[9px] leading-tight">
-                      {model.name}
-                    </span>
-                    <span className="text-[6px] opacity-60">{model.cost}</span>
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+<AnimatePresence>
+  {showModelSelector && (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="fixed bottom-[calc(100%+0.5rem)] w-[200px] sm:w-[250px] md:w-[300px] bg-black rounded-xl p-1 sm:p-1.5 border border-white/10 z-[9999] h-[100px] sm:h-[120px] shadow-lg"
+      style={{
+        bottom: `calc(${inputContainerRef.current?.getBoundingClientRect().height || 0}px + 0.5rem)`,
+        left: `${inputContainerRef.current?.getBoundingClientRect().left - 40}px`,
+        ...(selectorPlacement === "top" && {
+          bottom: 'unset',
+          top: `calc(${inputContainerRef.current?.getBoundingClientRect().top}px - 0.5rem - ${100}px)` // Adjusted top placement
+        })
+      }}
+    >
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 overflow-hidden">
+        {models.map((model) => (
+          <button
+            key={model.id}
+            onClick={() => {
+              setSelectedModel(model.id);
+              setShowModelSelector(false);
+            }}
+            className={`p-0.5 rounded-lg text-white/80 hover:bg-white/10 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
+              selectedModel === model.id ? 'bg-white/20' : ''
+            }`}
+          >
+            {model.id === "gpt-3.5-turbo" ? (
+              <SiOpenai className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
+            ) : model.id === "gpt-4o-mini" ? (
+              <SiOpenai className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
+            ) : model.id === "gemini-flash-2.0" ? (
+              <TbBrandGoogleFilled className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
+            ) : model.id === "claude-3.5-haiku" ? (
+              <TbBrain className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
+            ) : model.id === "llama-3.3" ? (
+              <SiClarifai className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
+            ) : (
+              <HiSparkles className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
+            )}
+            <span className="text-center text-[6px] sm:text-[8px] md:text-[9px] leading-tight">
+              {model.name}
+            </span>
+            <span className="text-[5px] sm:text-[6px] opacity-60">{model.cost}</span>
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
       </motion.form>
 
       {isRecording && (
