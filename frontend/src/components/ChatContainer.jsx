@@ -311,12 +311,19 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   }, [messages, onUpdateMessages]);
 
   const addMessage = async (content, role, isStreaming = false) => {
-    console.log("addMessage called with:", { content, role, isStreaming });
+    // Convert content to string immediately upon entry
+    const safeContent = typeof content === 'string' 
+      ? content 
+      : (content && typeof content === 'object' 
+        ? JSON.stringify(content) 
+        : String(content));
+    
+    console.log("addMessage called with:", { content: safeContent, role, isStreaming });
     if (!chatIdRef.current) return;
   
     const newMessage = {
       messageId: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      content: typeof content === 'string' ? content : JSON.stringify(content),
+      content: safeContent,
       role,
       timestamp: new Date().toISOString()
     };
@@ -425,7 +432,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                       <pre {...props} style={{ position: 'relative' }}>
                         <button
                           onClick={() => copyToClipboard(content, message.messageId)}
-                          className="absolute top-1 right-1 text-xs text-white bg-gray-700 rounded px-2 py-1 hover:bg-gray-600"
+                          className="absolute top-1 right-1 text-xs text-white bg-gray-600 rounded px-2 py-1 hover:bg-gray-600"
                         >
                           {copyStatus[message.messageId] ? <LuCopyCheck /> : <FaRegCopy />}
                         </button>
