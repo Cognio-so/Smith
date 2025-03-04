@@ -48,7 +48,7 @@ function MessageInput({ onSendMessage, isLoading }) {
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const speechTimeoutRef = useRef(null);
 
-  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000';
+  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000'|| 'https://py-backend-algohype.replit.app';
 
   const cancelCurrentRequest = () => {
     console.log('🛑 Attempting to cancel current request');
@@ -332,7 +332,7 @@ function MessageInput({ onSendMessage, isLoading }) {
       formData.append('file', file);
 
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/upload', {
+      const response = await fetch('https://vercel.com/algo-hype-analytics/smith-backend/api/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
