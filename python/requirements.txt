@@ -1,9 +1,0 @@
-fastapi
-uvicorn
-aiohttp
-python-dotenv
-langchain-core
-langchain-openai
-langchain-anthropic
-langchain-google-genai
-langchain-fireworks 
