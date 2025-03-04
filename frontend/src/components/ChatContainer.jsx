@@ -54,7 +54,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`https://vercel.com/algo-hype-analytics/smith-backend/api/chats/${activeChat.id}`, {
+        const response = await fetch(`https://smith-backend-psi.vercel.app/api/chats/${activeChat.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -122,8 +122,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       const isTemporaryChat = chatIdRef.current.startsWith('temp_');
       
       const endpoint = isTemporaryChat 
-        ? 'https://vercel.com/algo-hype-analytics/smith-backend/api/chats/save'
-        : `https://vercel.com/algo-hype-analytics/smith-backend/api/chats/${chatIdRef.current}/update`;
+        ? 'https://smith-backend-psi.vercel.app/api/chats/save'
+        : `https://smith-backend-psi.vercel.app/api/chats/${chatIdRef.current}/update`;
       
       const method = isTemporaryChat ? 'POST' : 'PUT';
 

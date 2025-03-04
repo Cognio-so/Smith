@@ -53,7 +53,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
             return;
         }
 
-        const response = await fetch('https://vercel.com/algo-hype-analytics/smith-backend/api/chats/save', {
+        const response = await fetch('https://smith-backend-psi.vercel.app/api/chats/save', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -147,7 +147,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://vercel.com/algo-hype-analytics/smith-backend/api/chats/${chatId}`, {
+      const response = await fetch(`https://smith-backend-psi.vercel.app/api/chats/${chatId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
