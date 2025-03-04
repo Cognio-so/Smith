@@ -28,23 +28,20 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const chatIdRef = useRef(null)
   const [copyStatus, setCopyStatus] = useState({})
 
-  // Initialize messages when activeChat changes
   useEffect(() => {
     if (activeChat) {
       setMessages(activeChat.messages || [])
       setIsFirstMessage(!activeChat.messages?.length)
       chatIdRef.current = activeChat.id
     }
-  }, [activeChat?.id]) // Only depend on chat ID change
+  }, [activeChat?.id])
 
-  // Load messages when component mounts and when activeChat changes
   useEffect(() => {
     const loadChat = async () => {
       if (!activeChat?.id) return;
       
       setIsLoadingChat(true);
       
-      // For temporary chats, just initialize with empty messages
       if (activeChat.id.startsWith('temp_')) {
         setMessages([]);
         setIsFirstMessage(true);
@@ -69,8 +66,9 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         const data = await response.json();
         
         if (data.chat?.messages) {
-          const formattedMessages = data.chat.messages.map(msg => ({
-            content: msg.content,
+          const formattedMessages = data.chat.messages.map((msg, index) => ({
+            messageId: msg.messageId || `msg-${Date.now()}-${index}`,
+            content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
             role: msg.role,
             timestamp: msg.timestamp || new Date().toISOString()
           }));
@@ -80,9 +78,9 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         }
       } catch (error) {
         console.error('Error loading chat:', error);
-        // Only show error for non-temporary chats
         if (!activeChat.id.startsWith('temp_')) {
           setMessages(prev => [...prev, {
+            messageId: `error-${Date.now()}`,
             content: `Error loading chat: ${error.message}`,
             role: "system",
             timestamp: new Date().toISOString()
@@ -96,10 +94,13 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     loadChat();
   }, [activeChat?.id]);
 
-  // Add this useEffect to sync messages with activeChat
   useEffect(() => {
     if (activeChat?.messages) {
-      setMessages(activeChat.messages);
+      setMessages(activeChat.messages.map((msg, index) => ({
+        ...msg,
+        messageId: msg.messageId || `msg-${Date.now()}-${index}`,
+        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+      })));
       setIsFirstMessage(activeChat.messages.length === 0);
     } else {
       setMessages([]);
@@ -148,7 +149,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       }
 
       if (data.success) {
-        // Update chatId if this was a temporary chat
         if (isTemporaryChat && data.chat?.id) {
           chatIdRef.current = data.chat.id;
         }
@@ -171,7 +171,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     }
   };
 
-  // Scroll to bottom when messages change
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
@@ -237,7 +236,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
   const typewriterEffect = (text, callback) => {
     let i = 0;
-    const speed = 20; // Adjust speed of typing (lower = faster)
+    const speed = 20;
     let currentText = '';
 
     const type = () => {
@@ -276,10 +275,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         throw new Error('User email not found');
       }
 
-      // Get the last 10 messages or all messages if less than 10
       const lastMessages = recentMessages.slice(-10);
       
-      // Send email with the messages
       const result = await sendEmailWithPDF(
         user.email,
         lastMessages,
@@ -288,8 +285,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
       console.log('Email send result:', result);
 
-      // Add success message
       setMessages(prev => [...prev, {
+        messageId: `sys-${Date.now()}`,
         content: `✅ I've sent the email to ${user.email} with our conversation. Please check your inbox!`,
         role: "assistant",
         timestamp: new Date().toISOString()
@@ -299,6 +296,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       console.error('Email send error:', error);
       
       setMessages(prev => [...prev, {
+        messageId: `err-${Date.now()}`,
         content: `❌ Sorry, I couldn't send the email: ${error.message}. Please try again or contact support if the issue persists.`,
         role: "assistant",
         timestamp: new Date().toISOString()
@@ -306,19 +304,19 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     }
   };
 
-  // Use useEffect to notify parent of message changes
   useEffect(() => {
     if (messages.length > 0 && onUpdateMessages) {
       onUpdateMessages(messages);
     }
   }, [messages, onUpdateMessages]);
 
-  // Update the addMessage function
   const addMessage = async (content, role, isStreaming = false) => {
+    console.log("addMessage called with:", { content, role, isStreaming });
     if (!chatIdRef.current) return;
   
     const newMessage = {
-      content,
+      messageId: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      content: typeof content === 'string' ? content : JSON.stringify(content),
       role,
       timestamp: new Date().toISOString()
     };
@@ -326,15 +324,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     setMessages(prevMessages => {
       let updatedMessages;
       if (role === 'assistant' && prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === 'assistant' && (isStreaming || !isStreaming)) {
-        // Update the last assistant message, whether streaming or finalizing
         updatedMessages = [...prevMessages];
         updatedMessages[updatedMessages.length - 1] = newMessage;
       } else {
-        // Add new message (for user or first assistant message)
         updatedMessages = [...prevMessages, newMessage];
       }
-  
-      // Save after AI response when stream is complete (non-streaming call)
+
       if (role === 'assistant' && !isStreaming) {
         saveMessages(updatedMessages);
       }
@@ -346,12 +341,10 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       setIsFirstMessage(false);
       setIsLoading(true);
     } else if (role === "assistant") {
-      // Clear loading state when assistant response is received
       setIsLoading(false);
     }
   };
 
-  // Handle pending saves when loading state changes
   useEffect(() => {
     if (!isLoading && pendingMessages.current.length > 0) {
       saveMessages(pendingMessages.current);
@@ -370,7 +363,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   };
 
   const renderMessage = (message, index) => {
-    // Add voice message indicator and styling
     return (
       <motion.div
         key={message.messageId}
@@ -386,7 +378,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
             className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg"
             whileHover={{ scale: 1.05 }}
           >
-            {/* Show different icon for voice messages */}
             {message.isVoice ? (
               <BsChatLeftText className="w-4 h-4 text-white" />
             ) : (
@@ -410,12 +401,10 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
             transition={{ delay: 0.1 }}
             className="relative"
           >
-            {/* Add voice message indicator if it's a voice message */}
             {message.isVoice && (
               <div className="text-xs text-[#cc2b5e] mb-1">🎤 Voice Message</div>
             )}
             
-            {/* Rest of the message content rendering */}
             <div style={{ overflowX: "auto", width: "100%" }}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
@@ -446,6 +435,11 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                   },
                   ul: ({ node, ...props }) => <ul {...props} />,
                   ol: ({ node, ...props }) => <ol {...props} />,
+                  li: ({ node, ...props }) => (
+                    <li key={props.node.key} {...props}>
+                      {props.children}
+                    </li>
+                  ),
                 }}
               >
                 {message.content}
@@ -456,7 +450,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
         {message.role === "user" && (
           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-white/10 shadow-lg">
-            {/* Show different icon for user voice messages */}
             {message.isVoice ? (
               <BsChatLeftText className="w-4 h-4 text-[#FAAE7B]" />
             ) : (
@@ -468,7 +461,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     );
   };
 
-  // Add loading skeleton component
   const LoadingSkeleton = () => (
     <div className="space-y-4 p-4">
       {[1, 2, 3].map((i) => (
@@ -490,17 +482,15 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     </div>
   );
 
-  // When creating new chat
   const createNewChat = () => {
     const newChat = {
-        id: `temp_${Date.now()}`, // Use consistent id property
+        id: `temp_${Date.now()}`,
         title: 'New Chat',
         messages: []
     };
     setActiveChat(newChat);
   };
 
-  // Cleanup on unmount or chat change
   useEffect(() => {
     return () => {
       setIsLoading(false);
@@ -514,11 +504,9 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] ${
       isOpen ? 'lg:ml-0' : 'lg:ml-0'
     } transition-all duration-300`}>
-      {/* Header */}
       <div className="sticky top-0 z-20 px-3 sm:px-4 py-3 sm:py-4 flex items-center bg-[#0a0a0a]/80 backdrop-blur-lg h-[60px]">
         <div className="flex items-center justify-between w-full">
           <div className="w-full flex items-center justify-center lg:justify-start gap-2 sm:gap-3">
-            {/* Logo - Visible only on mobile */}
             <div className="lg:hidden flex items-center gap-2">
               <div className="w-8 h-8 sm:w-10 sm:h-10">
                 <img
@@ -535,13 +523,14 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         </div>
       </div>
 
-      {/* Messages Container */}
       <div className="flex-1 overflow-y-auto scrollbar-hide p-3 sm:p-4 space-y-4 sm:space-y-6 bg-[#0a0a0a]">
         {isLoadingChat ? (
           <LoadingSkeleton />
         ) : (
           <>
-            {messages.map((message, index) => renderMessage(message, index))}
+            {messages.map((message, index) => (
+              renderMessage(message, index)
+            ))}
             
             {isLoading && (
               <motion.div
@@ -574,16 +563,13 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Predefined Prompts - Enhanced with more intense glow effect */}
       <div className={`w-full ${isFirstMessage ? 'absolute top-1/2 -translate-y-1/2' : 'relative'}`}>
         {isFirstMessage && (
           <div className="px-4 py-6">
-            {/* Added Welcome Message */}
             <div className="text-center mb-6">
               <h1 className="text-3xl font-bold text-[#cc2b5e]">Welcome to Vaani.pro</h1>
               <p className="text-gray-400 text-xl mt-2">How may I help you today?</p>
             </div>
-            {/* Predefined Prompts */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl mx-auto">
               {predefinedPrompts.map((item) => (
                 <motion.div
@@ -602,7 +588,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                   }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {/* Enhanced Glow overlay */}
                   <motion.div 
                     className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 
                       group-hover:opacity-20 transition-opacity duration-300 blur-2xl"
@@ -612,8 +597,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                       transition: { duration: 0.3 }
                     }}
                   />
-
-                  {/* Animated border glow */}
                   <motion.div 
                     className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 
                       group-hover:opacity-30 transition-all duration-500 blur-md"
@@ -624,8 +607,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                       transition: { duration: 0.5 }
                     }}
                   />
-
-                  {/* Content with enhanced hover effects */}
                   <div className="relative z-10">
                     <h3 className="text-white/90 font-medium text-sm mb-2">
                       {item.title}
@@ -634,8 +615,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                       {item.prompt}
                     </p>
                   </div>
-
-                  {/* Additional corner glow effects */}
                   <div className="absolute -inset-1 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] 
                     rounded-xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 blur-xl -z-10"
                   />
