@@ -27,7 +27,7 @@ function MessageInput({ onSendMessage, isLoading }) {
   const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
   const [models, setModels] = useState([
     { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
-    { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" }, // Kept as is, cheap
+    { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
     { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -36,7 +36,6 @@ function MessageInput({ onSendMessage, isLoading }) {
   const [error, setError] = useState('');
   const [response, setResponse] = useState('');
   const [sessionId, setSessionId] = useState(() => {
-    // Get existing session ID or create a new one
     const existingId = localStorage.getItem('chatSessionId');
     if (existingId) return existingId;
     const newId = `session_${Date.now()}`;
@@ -48,7 +47,7 @@ function MessageInput({ onSendMessage, isLoading }) {
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const speechTimeoutRef = useRef(null);
 
-  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000'|| 'https://py-backend-algohype.replit.app';
+  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000' || 'https://py-backend-algohype.replit.app';
 
   const cancelCurrentRequest = () => {
     console.log('🛑 Attempting to cancel current request');
@@ -65,7 +64,6 @@ function MessageInput({ onSendMessage, isLoading }) {
     console.log('🎤 Speech Start Detected');
     setIsUserSpeaking(true);
     
-    // Cancel ongoing AI response
     if (abortControllerRef.current) {
       console.log('🛑 Cancelling AI response due to user speech');
       cancelCurrentRequest();
@@ -101,7 +99,6 @@ function MessageInput({ onSendMessage, isLoading }) {
         try {
           console.log('📝 Received transcript data:', data);
 
-          // Handle speech events
           if (data.speech_started) {
             console.log('🎤 Speech start event received');
             handleUserSpeechStart();
@@ -118,7 +115,6 @@ function MessageInput({ onSendMessage, isLoading }) {
             return;
           }
 
-          // Process transcript
           if (!data.isFinal && (!data.confidence || data.confidence < 0.85)) {
             console.log('⏳ Skipping low confidence interim result');
             return;
@@ -165,7 +161,6 @@ function MessageInput({ onSendMessage, isLoading }) {
                 setOverlayMessages(prev => [...prev, { type: 'assistant', content: responseData.response }]);
                 onSendMessage(responseData.response, "assistant");
 
-                // Add speech synthesis
                 if (!isMuted) {
                   setIsAISpeaking(true);
                   try {
@@ -216,6 +211,7 @@ function MessageInput({ onSendMessage, isLoading }) {
       console.error('Error closing voice interaction:', error);
     }
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -259,18 +255,16 @@ function MessageInput({ onSendMessage, isLoading }) {
         throw new Error(`Server responded with status ${response.status}`);
       }
   
-      // Handle streaming response with real-time updates
       const reader = response.body.getReader();
-      let accumulatedResponse = ""; // Buffer for the current assistant message
-      let hasStartedStreaming = false; // Track if streaming has begun
+      let accumulatedResponse = "";
+      let hasStartedStreaming = false;
   
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
-            // Stream is complete; finalize and save
             if (currentRequestRef.current === requestId && accumulatedResponse.trim() && hasStartedStreaming) {
-              onSendMessage(accumulatedResponse.trim(), "assistant", false); // Finalize and trigger save
+              onSendMessage(accumulatedResponse.trim(), "assistant", false);
             }
             break;
           }
@@ -280,31 +274,39 @@ function MessageInput({ onSendMessage, isLoading }) {
   
           for (const line of lines) {
             if (line.startsWith("data: ")) {
-              const jsonData = line.substring(6); // Remove "data: "
+              const jsonData = line.substring(6);
               if (jsonData === "[DONE]") {
-                // Handled in done case above
+                // Stream complete
               } else {
                 try {
                   let parsedData;
                   try {
                     parsedData = JSON.parse(jsonData);
                   } catch {
-                    parsedData = jsonData; // Fallback to raw string if not JSON
+                    parsedData = jsonData; // Fallback to raw string
                   }
 
-                  // IMPORTANT: Access the correct property (e.g., 'response', 'text', etc.)
-                  if (typeof parsedData === 'object' && parsedData !== null && parsedData.response) {
-                      accumulatedResponse += parsedData.response; // Append the correct property
+                  // Extract the actual content string
+                  let contentPiece;
+                  if (typeof parsedData === 'object' && parsedData !== null) {
+                    // Check common response properties
+                    contentPiece = parsedData.response || 
+                                 parsedData.text || 
+                                 parsedData.content || 
+                                 JSON.stringify(parsedData);
                   } else {
-                      accumulatedResponse += parsedData; // Fallback if not the expected structure
+                    contentPiece = String(parsedData);
                   }
+
+                  accumulatedResponse += contentPiece;
 
                   if (currentRequestRef.current === requestId) {
-                    onSendMessage(accumulatedResponse, "assistant", true); // Streaming update
-                    hasStartedStreaming = true; // Mark streaming has started
+                    onSendMessage(accumulatedResponse, "assistant", true);
+                    hasStartedStreaming = true;
                   }
                 } catch (parseError) {
                   console.error("Error parsing JSON:", parseError);
+                  accumulatedResponse += `[Parse Error: ${parseError.message}]`;
                 }
               }
             }
@@ -329,6 +331,7 @@ function MessageInput({ onSendMessage, isLoading }) {
       }
     }
   };
+
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -354,7 +357,6 @@ function MessageInput({ onSendMessage, isLoading }) {
       const data = await response.json();
       setUploadedFile(data.fileUrl);
       
-      // Send a message about the uploaded file
       onSendMessage(`Uploaded file: ${file.name}`, "user");
     } catch (error) {
       console.error('Upload error:', error);
@@ -376,12 +378,9 @@ function MessageInput({ onSendMessage, isLoading }) {
   };
 
   const stopSpeaking = () => {
-    // Add any cleanup for ongoing speech synthesis
     setIsAISpeaking(false);
-    // You might need to add a method to stop ongoing speech in your speakWithDeepgram utility
   };
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       cancelCurrentRequest();
@@ -399,7 +398,6 @@ function MessageInput({ onSendMessage, isLoading }) {
   }, []);
 
   useEffect(() => {
-    // Initialize session ID if not exists
     if (!sessionId) {
       const newSessionId = `session_${Date.now()}`;
       setSessionId(newSessionId);
@@ -429,13 +427,13 @@ function MessageInput({ onSendMessage, isLoading }) {
       icon: <SiClarifai size={18} />,
       cost: "$0.0003/1K",
     },
-      {
-        name: "llama-3.3",
-        label: "Llama 3.3",
-        description: "Meta's open-source model, great for research and customization.",
-        icon: <TbBrain size={18} />,
-        cost: "$0.0002/1K",
-      }
+    {
+      name: "llama-3.3",
+      label: "Llama 3.3",
+      description: "Meta's open-source model, great for research and customization.",
+      icon: <TbBrain size={18} />,
+      cost: "$0.0002/1K",
+    }
   ];
 
   return (
@@ -449,7 +447,6 @@ function MessageInput({ onSendMessage, isLoading }) {
               : 'bg-white/[0.03]'
             } backdrop-blur-xl border border-white/20`}
         >
-          {/* Background glow effect */}
           <motion.div 
             className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 
               group-hover:opacity-20 transition-opacity duration-300 blur-2xl rounded-2xl"
@@ -460,7 +457,6 @@ function MessageInput({ onSendMessage, isLoading }) {
             }}
           />
 
-          {/* Existing form content */}
           <div className="relative z-10">
             <div className="relative flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 sm:p-3">
               <motion.button
