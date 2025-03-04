@@ -291,8 +291,14 @@ function MessageInput({ onSendMessage, isLoading }) {
                   } catch {
                     parsedData = jsonData; // Fallback to raw string if not JSON
                   }
-                  accumulatedResponse += parsedData; // Append new chunk
-  
+
+                  // IMPORTANT: Access the correct property (e.g., 'response', 'text', etc.)
+                  if (typeof parsedData === 'object' && parsedData !== null && parsedData.response) {
+                      accumulatedResponse += parsedData.response; // Append the correct property
+                  } else {
+                      accumulatedResponse += parsedData; // Fallback if not the expected structure
+                  }
+
                   if (currentRequestRef.current === requestId) {
                     onSendMessage(accumulatedResponse, "assistant", true); // Streaming update
                     hasStartedStreaming = true; // Mark streaming has started
