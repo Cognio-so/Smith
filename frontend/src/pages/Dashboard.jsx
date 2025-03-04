@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import Sidebar from '../components/Sidebar';
 import ChatContainer from '../components/ChatContainer';
+import Sidebar from '../components/Sidebar';
 
 const Dashboard = () => {
   const [chats, setChats] = useState([]);
@@ -77,7 +77,7 @@ const Dashboard = () => {
       style={{
         background: 'linear-gradient(to left, #414345, #232526)'
       }}>
-      <Sidebar 
+      <Sidebar
         ref={sidebarRef}
         chats={chats} 
         activeChat={activeChatWithMessages}

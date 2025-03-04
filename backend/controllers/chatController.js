@@ -73,16 +73,52 @@ exports.getChatHistory = async (req, res) => {
         const chats = await Chat.find({ userId })
             .select('chatId title lastUpdated messages')
             .sort({ lastUpdated: -1 })
-            .limit(50); // Limit to recent chats for performance
+            .limit(50);
 
-        res.json({ 
-            success: true, 
-            chats: chats.map(chat => ({
+        // Calculate date boundaries
+        const now = new Date();
+        const today = new Date(now.setHours(0, 0, 0, 0));
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const lastWeek = new Date(today);
+        lastWeek.setDate(lastWeek.getDate() - 7);
+        const lastMonth = new Date(today);
+        lastMonth.setDate(lastMonth.getDate() - 30);
+
+        // Categorize chats
+        const categorizedChats = {
+            today: [],
+            yesterday: [],
+            lastWeek: [],
+            lastMonth: [],
+            older: []
+        };
+
+        chats.forEach(chat => {
+            const chatDate = new Date(chat.lastUpdated);
+            const chatData = {
                 id: chat.chatId,
                 title: chat.title,
                 lastUpdated: chat.lastUpdated,
                 preview: chat.messages[chat.messages.length - 1]?.content || ''
-            }))
+            };
+
+            if (chatDate >= today) {
+                categorizedChats.today.push(chatData);
+            } else if (chatDate >= yesterday) {
+                categorizedChats.yesterday.push(chatData);
+            } else if (chatDate >= lastWeek) {
+                categorizedChats.lastWeek.push(chatData);
+            } else if (chatDate >= lastMonth) {
+                categorizedChats.lastMonth.push(chatData);
+            } else {
+                categorizedChats.older.push(chatData);
+            }
+        });
+
+        res.json({ 
+            success: true, 
+            categories: categorizedChats
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });

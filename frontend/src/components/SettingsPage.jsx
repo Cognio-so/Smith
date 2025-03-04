@@ -167,9 +167,10 @@ const SettingPage = ({ isOpen, onClose }) => {
                       onChange={(e) => setSelectedModel(e.target.value)}
                       className="w-full p-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent"
                     >
-                      <option value="gpt-4">GPT-4</option>
-                      <option value="gpt-3.5">GPT-3.5</option>
-                      <option value="claude-3">Claude 3</option>
+                      <option value="gpt-4o-mini">GPT-4o-mini</option>
+                      <option value="gemini-flash-2.0">Gemini-flash-2.0</option>
+                      <option value="claude-3.5-haiku">Claude 3.5 Haiku</option>
+                      <option value="llama-3.3">Llama 3.3</option>
                     </select>
                   </div>
                 </div>

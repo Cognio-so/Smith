@@ -6,13 +6,12 @@ import { SiOpenai } from "react-icons/si";
 import { TbBrandGoogleFilled } from "react-icons/tb";
 import { SiClarifai } from "react-icons/si";
 import { TbBrain } from "react-icons/tb";
-import { FaRobot } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { startSpeechToTextStreaming } from '../utils/speechToTextStreaming';
 import { speakWithDeepgram } from '../utils/textToSpeech';
 import VoiceRecordingOverlay from './VoiceRecordingOverlay';
 
-function MessageInput({ onSendMessage }) {
+function MessageInput({ onSendMessage, isLoading }) {
   const [message, setMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [overlayMessages, setOverlayMessages] = useState([]);
@@ -25,10 +24,11 @@ function MessageInput({ onSendMessage }) {
   const [isMuted, setIsMuted] = useState(false);
   const stopRef = useRef(null);
   const [showModelSelector, setShowModelSelector] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
+  const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
   const [models, setModels] = useState([
-    { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Cheapest" },
-    { id: "gemini-flash-2.0", name: "Gemini-flash-2.0", cost: "Low" },
+    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
+    { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" }, // Kept as is, cheap
+    { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
@@ -36,6 +36,7 @@ function MessageInput({ onSendMessage }) {
   const [error, setError] = useState('');
   const [response, setResponse] = useState('');
   const [sessionId, setSessionId] = useState(() => {
+    // Get existing session ID or create a new one
     const existingId = localStorage.getItem('chatSessionId');
     if (existingId) return existingId;
     const newId = `session_${Date.now()}`;
@@ -46,11 +47,8 @@ function MessageInput({ onSendMessage }) {
   const abortControllerRef = useRef(null);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const speechTimeoutRef = useRef(null);
-  const [selectorPlacement, setSelectorPlacement] = useState("bottom");
-  const inputContainerRef = useRef(null);
-  const [isAgentChat, setIsAgentChat] = useState(false);
 
-  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000' || 'https://py-backend-algohype.replit.app';
+  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000';
 
   const cancelCurrentRequest = () => {
     console.log('🛑 Attempting to cancel current request');
@@ -67,6 +65,7 @@ function MessageInput({ onSendMessage }) {
     console.log('🎤 Speech Start Detected');
     setIsUserSpeaking(true);
     
+    // Cancel ongoing AI response
     if (abortControllerRef.current) {
       console.log('🛑 Cancelling AI response due to user speech');
       cancelCurrentRequest();
@@ -100,79 +99,95 @@ function MessageInput({ onSendMessage }) {
       
       const handleTranscript = async (data) => {
         try {
+          console.log('📝 Received transcript data:', data);
+
+          // Handle speech events
           if (data.speech_started) {
+            console.log('🎤 Speech start event received');
             handleUserSpeechStart();
             return;
           }
           if (data.speech_ended) {
+            console.log('🎤 Speech end event received');
             handleUserSpeechEnd();
             return;
           }
 
-          if (!data?.content) return;
+          if (!data?.content) {
+            console.warn('⚠️ Invalid transcript data received');
+            return;
+          }
 
-          if (data.isFinal && data.confidence >= 0.7) {
-            const userMessage = data.content.trim();
-            console.log('Final transcript received:', userMessage);
+          // Process transcript
+          if (!data.isFinal && (!data.confidence || data.confidence < 0.85)) {
+            console.log('⏳ Skipping low confidence interim result');
+            return;
+          }
+
+          console.log(`📝 Processing ${data.isFinal ? 'final' : 'interim'} transcript:`, data.content);
+          
+          if (data.isFinal) {
+            console.log('🎯 Processing final transcript');
+            cancelCurrentRequest();
             
-            const voiceMessageId = `voice-${Date.now()}`;
-            
-            setOverlayMessages(prev => [...prev, { type: 'user', content: userMessage }]);
-            
-            onSendMessage(userMessage, "user", false, voiceMessageId);
-            
+            setOverlayMessages(prev => [...prev, { type: 'user', content: data.content }]);
+            onSendMessage(data.content, "user");
+
             try {
-              console.log('Sending request to voice-chat endpoint');
-              const requestId = Date.now().toString();
-              setIsProcessing(true);
-              
+              abortControllerRef.current = new AbortController();
+              currentRequestRef.current = Date.now();
+              const currentRequest = currentRequestRef.current;
+
+              console.log('🚀 Sending request to API');
               const response = await fetch(`${PYTHON_API_URL}/voice-chat`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   'X-Session-ID': sessionId,
-                  'X-Request-ID': requestId
+                  'X-Request-ID': currentRequest.toString()
                 },
                 body: JSON.stringify({
-                  message: userMessage,
+                  message: data.content,
                   model: selectedModel,
                   language: data.language || 'en-US'
-                })
+                }),
+                signal: abortControllerRef.current.signal
               });
 
               if (!response.ok) {
-                throw new Error(`API request failed: ${response.status}`);
+                throw new Error(`API request failed with status ${response.status}`);
               }
 
               const responseData = await response.json();
-              console.log('Response received:', responseData);
-              setIsProcessing(false);
-              
-              if (responseData.success && responseData.response) {
-                const aiResponse = responseData.response.trim();
-                
-                setOverlayMessages(prev => [...prev, { 
-                  type: 'assistant', 
-                  content: aiResponse 
-                }]);
-                
-                onSendMessage(aiResponse, "assistant", false, `${voiceMessageId}-response`);
-                
-                setIsAISpeaking(true);
-                try {
-                  await speakWithDeepgram(aiResponse, responseData.language);
-                } finally {
-                  setIsAISpeaking(false);
+              console.log('✅ Received API response:', responseData);
+
+              if (currentRequestRef.current === currentRequest) {
+                setOverlayMessages(prev => [...prev, { type: 'assistant', content: responseData.response }]);
+                onSendMessage(responseData.response, "assistant");
+
+                // Add speech synthesis
+                if (!isMuted) {
+                  setIsAISpeaking(true);
+                  try {
+                    await speakWithDeepgram(responseData.response);
+                  } catch (error) {
+                    console.error('Speech synthesis error:', error);
+                  } finally {
+                    setIsAISpeaking(false);
+                  }
                 }
               }
             } catch (error) {
-              setIsProcessing(false);
-              console.error('API request error:', error);
-              onSendMessage(`Error: ${error.message}`, "system");
+              console.error('❌ API request error:', error);
+              if (error.name === 'AbortError') {
+                console.log('🛑 Request was cancelled');
+              } else {
+                onSendMessage(`Error: ${error.message}`, "system");
+              }
             }
           }
         } catch (error) {
-          console.error('Transcript processing error:', error);
+          console.error('❌ Transcript processing error:', error);
         }
       };
 
@@ -195,32 +210,40 @@ function MessageInput({ onSendMessage }) {
           stopRef.current();
         }
         setIsRecording(false);
+        setOverlayMessages([]);
       }
     } catch (error) {
       console.error('Error closing voice interaction:', error);
     }
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!message.trim() || isSubmitting) return;
-
+    
+    if (!message.trim() || isSubmitting) {
+      return;
+    }
+  
     const requestId = Date.now();
     const currentMessage = message.trim();
+  
     cancelCurrentRequest();
-
+    
     try {
       setIsSubmitting(true);
       setMessage('');
       onSendMessage(currentMessage, "user");
-
+  
       abortControllerRef.current = new AbortController();
       currentRequestRef.current = requestId;
-
+  
+      stopSpeaking();
+  
+      const token = localStorage.getItem('token');
       const response = await fetch(`${PYTHON_API_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
           'X-Session-ID': sessionId,
           'X-Request-ID': requestId.toString(),
           'X-Cancel-Previous': 'true'
@@ -231,71 +254,66 @@ function MessageInput({ onSendMessage }) {
         }),
         signal: abortControllerRef.current.signal
       });
-
+  
       if (!response.ok) {
         throw new Error(`Server responded with status ${response.status}`);
       }
-
+  
+      // Handle streaming response with real-time updates
       const reader = response.body.getReader();
-      let buffer = '';
-      let lastUpdateTime = Date.now();
-      const updateInterval = 50;
-      let accumulatedContent = '';
-      let isFirstChunk = true;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = new TextDecoder().decode(value);
-        buffer += chunk;
-        
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
-        
-        for (const message of lines) {
-          if (message.startsWith('data: ')) {
-            const data = message.slice(6);
-            
-            if (data === '[DONE]') {
-              break;
+      let accumulatedResponse = ""; // Buffer for the current assistant message
+      let hasStartedStreaming = false; // Track if streaming has begun
+  
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            // Stream is complete; finalize and save
+            if (currentRequestRef.current === requestId && accumulatedResponse.trim() && hasStartedStreaming) {
+              onSendMessage(accumulatedResponse.trim(), "assistant", false); // Finalize and trigger save
             }
-            
-            try {
-              const parsedData = JSON.parse(data);
-              
-              if (parsedData.content && currentRequestRef.current === requestId) {
-                accumulatedContent += parsedData.content;
-                
-                const now = Date.now();
-                if (now - lastUpdateTime >= updateInterval) {
-                  onSendMessage(
-                    accumulatedContent, 
-                    "assistant", 
-                    true
-                  );
-                  
-                  if (isFirstChunk) {
-                    isFirstChunk = false;
+            break;
+          }
+  
+          const chunkText = new TextDecoder().decode(value);
+          const lines = chunkText.split('\n').filter(line => line.trim());
+  
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const jsonData = line.substring(6); // Remove "data: "
+              if (jsonData === "[DONE]") {
+                // Handled in done case above
+              } else {
+                try {
+                  let parsedData;
+                  try {
+                    parsedData = JSON.parse(jsonData);
+                  } catch {
+                    parsedData = jsonData; // Fallback to raw string if not JSON
                   }
-                  
-                  lastUpdateTime = now;
+                  accumulatedResponse += parsedData; // Append new chunk
+  
+                  if (currentRequestRef.current === requestId) {
+                    onSendMessage(accumulatedResponse, "assistant", true); // Streaming update
+                    hasStartedStreaming = true; // Mark streaming has started
+                  }
+                } catch (parseError) {
+                  console.error("Error parsing JSON:", parseError);
                 }
               }
-            } catch (e) {
-              console.error('Error parsing chunk:', e);
             }
           }
         }
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log('Stream aborted:', error);
+        } else {
+          throw error;
+        }
       }
-
-      if (accumulatedContent.trim() && currentRequestRef.current === requestId) {
-        onSendMessage(accumulatedContent.trim(), "assistant", false);
-      }
-
+  
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.error('Chat error:', error);
         onSendMessage(`Error: ${error.message}`, "system");
       }
     } finally {
@@ -305,109 +323,6 @@ function MessageInput({ onSendMessage }) {
       }
     }
   };
-
-  const handleAgentChatSubmit = async (e) => {
-    e.preventDefault();
-    if (!message.trim() || isSubmitting) return;
-
-    const requestId = Date.now();
-    const currentMessage = message.trim();
-    cancelCurrentRequest();
-
-    try {
-      setIsSubmitting(true);
-      setMessage('');
-      onSendMessage(currentMessage, "user");
-
-      abortControllerRef.current = new AbortController();
-      currentRequestRef.current = requestId;
-
-      const response = await fetch(`${PYTHON_API_URL}/agent-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Session-ID': sessionId,
-          'X-Request-ID': requestId.toString(),
-        },
-        body: JSON.stringify({
-          message: currentMessage,
-        }),
-        signal: abortControllerRef.current.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server responded with status ${response.status}`);
-      }
-
-      const reader = response.body.getReader();
-      let buffer = '';
-      let lastUpdateTime = Date.now();
-      const updateInterval = 50;
-      let accumulatedContent = '';
-      let isFirstChunk = true;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = new TextDecoder().decode(value);
-        buffer += chunk;
-
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
-
-        for (const message of lines) {
-          if (message.startsWith('data: ')) {
-            const data = message.slice(6);
-
-            if (data === '[DONE]') {
-              break;
-            }
-
-            try {
-              const parsedData = JSON.parse(data);
-
-              if (parsedData.content && currentRequestRef.current === requestId) {
-                accumulatedContent += parsedData.content;
-
-                const now = Date.now();
-                if (now - lastUpdateTime >= updateInterval) {
-                  onSendMessage(
-                    accumulatedContent,
-                    "assistant",
-                    true
-                  );
-
-                  if (isFirstChunk) {
-                    isFirstChunk = false;
-                  }
-
-                  lastUpdateTime = now;
-                }
-              }
-            } catch (e) {
-              console.error('Error parsing chunk:', e);
-            }
-          }
-        }
-      }
-
-      if (accumulatedContent.trim() && currentRequestRef.current === requestId) {
-        onSendMessage(accumulatedContent.trim(), "assistant", false);
-      }
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error('Chat error:', error);
-        onSendMessage(`Error: ${error.message}`, "system");
-      }
-    } finally {
-      if (currentRequestRef.current === requestId) {
-        setIsSubmitting(false);
-        abortControllerRef.current = null;
-      }
-    }
-  };
-
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -417,7 +332,7 @@ function MessageInput({ onSendMessage }) {
       formData.append('file', file);
 
       const token = localStorage.getItem('token');
-      const response = await fetch('https://smith-backend-psi.vercel.app/api/upload', {
+      const response = await fetch('http://localhost:5000/api/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -433,6 +348,7 @@ function MessageInput({ onSendMessage }) {
       const data = await response.json();
       setUploadedFile(data.fileUrl);
       
+      // Send a message about the uploaded file
       onSendMessage(`Uploaded file: ${file.name}`, "user");
     } catch (error) {
       console.error('Upload error:', error);
@@ -440,10 +356,26 @@ function MessageInput({ onSendMessage }) {
     }
   };
 
-  const stopSpeaking = () => {
-    setIsAISpeaking(false);
+  const getModelIcon = (modelId) => {
+    switch (modelId) {
+      case "gemini-1.5-flash":
+        return <TbBrandGoogleFilled className="h-4 w-4 text-[#cc2b5e]" />;
+      case "gpt-4o-mini":
+        return <SiOpenai className="h-4 w-4 text-[#cc2b5e]" />;
+      case "claude-3-haiku-20240307":
+        return <TbBrain className="h-4 w-4 text-[#cc2b5e]" />;
+      default:
+        return <HiSparkles className="h-4 w-4 text-[#cc2b5e]" />;
+    }
   };
 
+  const stopSpeaking = () => {
+    // Add any cleanup for ongoing speech synthesis
+    setIsAISpeaking(false);
+    // You might need to add a method to stop ongoing speech in your speakWithDeepgram utility
+  };
+
+  // Clean up on unmount
   useEffect(() => {
     return () => {
       cancelCurrentRequest();
@@ -461,6 +393,7 @@ function MessageInput({ onSendMessage }) {
   }, []);
 
   useEffect(() => {
+    // Initialize session ID if not exists
     if (!sessionId) {
       const newSessionId = `session_${Date.now()}`;
       setSessionId(newSessionId);
@@ -468,208 +401,190 @@ function MessageInput({ onSendMessage }) {
     }
   }, [sessionId]);
 
-  useEffect(() => {
-    if (showModelSelector && inputContainerRef.current) {
-      const rect = inputContainerRef.current.getBoundingClientRect();
-      const availableBottom = window.innerHeight - rect.bottom;
-      const requiredHeight = 150;
-      if (availableBottom < requiredHeight) {
-        setSelectorPlacement("top");
-      } else {
-        setSelectorPlacement("bottom");
+  const availableModels = [
+    {
+      name: "gpt-4o-mini",
+      label: "GPT-4o-mini",
+      description: "OpenAI's latest flagship model, optimized for speed.",
+      icon: <SiOpenai size={18} />,
+      cost: "$0.005/1K",
+    },
+    {
+      name: "gemini-flash-2.0",
+      label: "Gemini Flash 2.0",
+      description: "Google's lightweight model, balanced for performance and cost.",
+      icon: <TbBrandGoogleFilled size={18} />,
+      cost: "$0.0005/1K",
+    },
+    {
+      name: "claude-3.5-haiku",
+      label: "Claude 3.5 Haiku",
+      description: "Anthropic's fastest and most cost-effective model.",
+      icon: <SiClarifai size={18} />,
+      cost: "$0.0003/1K",
+    },
+      {
+        name: "llama-3.3",
+        label: "Llama 3.3",
+        description: "Meta's open-source model, great for research and customization.",
+        icon: <TbBrain size={18} />,
+        cost: "$0.0002/1K",
       }
-    }
-  }, [showModelSelector]);
+  ];
 
   return (
-    <div className="px-2 sm:px-4 py-2 sm:py-4 overflow-hidden">
-      <motion.form
-        ref={inputContainerRef}
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (isAgentChat) {
-            handleAgentChatSubmit(e);
-          } else {
-            handleSubmit(e);
-          }
-        }}
-        className="group relative w-full max-w-2xl sm:max-w-3xl md:max-w-4xl mx-auto flex flex-col gap-1 sm:gap-2 bg-[#1a1a1a] border border-white/10 rounded-xl px-2 sm:px-4 py-2 sm:py-3 mb-0"
-      >
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              if (isAgentChat) {
-                handleAgentChatSubmit(e);
-              } else {
-                handleSubmit(e);
-              }
-            }
-          }}
-          placeholder={isAgentChat ? "Chat with AI Agent..." : "Type a message..."}
-          className="flex-1 bg-transparent text-xs sm:text-sm md:text-base text-white/90 placeholder:text-white/40 focus:outline-none resize-none overflow-hidden min-h-[36px] sm:min-h-[44px] max-h-[100px] sm:max-h-[120px]"
-          rows={1}
-          style={{ height: 'auto' }}
-          onInput={(e) => {
-            e.target.style.height = 'auto';
-            e.target.style.height = e.target.scrollHeight + 'px';
-          }}
-        />
-
-        <div className="flex items-center justify-between">
-          <motion.button
-            type="button"
-            onClick={() => setShowModelSelector(!showModelSelector)}
-            className={`flex items-center gap-1 sm:gap-2 p-1 sm:p-1.5 md:p-2 rounded-lg transition-all duration-200 ${
-              isAgentChat ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5'
-            }`}
-            whileHover={{ scale: isAgentChat ? 1 : 1.05 }}
-            whileTap={{ scale: isAgentChat ? 1 : 0.95 }}
-            disabled={isAgentChat}
-          >
-            {selectedModel === "gemini-pro" ? (
-              <TbBrandGoogleFilled className="h-4 w-4 sm:h-5 sm:w-5 text-[#cc2b5e]" />
-            ) : selectedModel === "gpt-3.5-turbo" ? (
-              <SiOpenai className="h-4 w-4 sm:h-5 sm:w-5 text-[#cc2b5e]" />
-            ) : selectedModel === "claude-3-haiku" ? (
-              <TbBrain className="h-4 w-4 sm:h-5 sm:w-5 text-[#cc2b5e]" />
-            ) : selectedModel === "llama-v2-7b" ? (
-              <SiClarifai className="h-4 w-4 sm:h-5 sm:w-5 text-[#cc2b5e]" />
-            ) : (
-              <HiSparkles className="h-4 w-4 sm:h-5 sm:w-5 text-[#cc2b5e]" />
-            )}
-            <span className="text-[9px] sm:text-[10px] md:text-xs text-[#cc2b5e]">
-              {models.find(m => m.id === selectedModel)?.name}
-            </span>
-          </motion.button>
-
-          <div className="flex items-center gap-1 sm:gap-2">
-            <motion.button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className={`p-1 sm:p-2 rounded-lg transition-all duration-200 ${
-                isAgentChat ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5'
-              }`}
-              whileHover={{ scale: isAgentChat ? 1 : 1.05 }}
-              whileTap={{ scale: isAgentChat ? 1 : 0.95 }}
-              disabled={isAgentChat}
-            >
-              <IoMdAttach className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />
-            </motion.button>
-
-            <motion.button
-              type="button"
-              onClick={handleVoiceInteraction}
-              className={`p-1 sm:p-2 rounded-lg transition-all duration-200 ${
-                isAgentChat ? 'opacity-50 cursor-not-allowed' : 
-                isRecording ? 'bg-red-500/20' : 'hover:bg-white/5'
-              }`}
-              whileHover={{ scale: isAgentChat ? 1 : 1.05 }}
-              whileTap={{ scale: isAgentChat ? 1 : 0.95 }}
-              disabled={isAgentChat}
-            >
-              <FiMic className={`h-3 w-3 sm:h-4 sm:w-4 ${
-                isRecording ? 'text-red-400' : 'text-[#cc2b5e]'
-              }`} />
-            </motion.button>
-
-            <motion.button
-              type="button"
-              onClick={() => {
-                setIsAgentChat(!isAgentChat);
-                if (!isAgentChat) {
-                  setShowModelSelector(false);
-                }
-              }}
-              className={`p-1 sm:p-2 rounded-lg transition-all duration-200 ${
-                isAgentChat ? 'bg-blue-500/20' : 'hover:bg-white/5'
-              }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <FaRobot className={`h-3 w-3 sm:h-4 sm:w-4 ${isAgentChat ? 'text-blue-400' : 'text-[#cc2b5e]'}`} />
-            </motion.button>
-
-            <motion.button
-              type="submit"
-              disabled={isSubmitting || !message.trim()}
-              className={`p-1 sm:p-2 rounded-lg transition-all duration-200 ${
-                message.trim() ? 'bg-[#cc2b5e] hover:bg-[#cc2b5e]/90' : 'hover:bg-white/5'
-              }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <FiSend className={`h-3 w-3 sm:h-4 sm:w-4 ${
-                message.trim() ? 'text-white' : 'text-[#cc2b5e]'
-              }`} />
-            </motion.button>
-          </div>
-        </div>
-
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          className="hidden"
-          accept=".pdf,.doc,.docx,.txt,.mp3,.wav,.mp4"
-        />
-
-<AnimatePresence>
-  {showModelSelector && (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="fixed bottom-[calc(100%+0.5rem)] w-[200px] sm:w-[250px] md:w-[300px] bg-black rounded-xl p-1 sm:p-1.5 border border-white/10 z-[9999] h-[100px] sm:h-[120px] shadow-lg"
-      style={{
-        bottom: `calc(${inputContainerRef.current?.getBoundingClientRect().height || 0}px + 0.5rem)`,
-        left: `${inputContainerRef.current?.getBoundingClientRect().left - 40}px`,
-        ...(selectorPlacement === "top" && {
-          bottom: 'unset',
-          top: `calc(${inputContainerRef.current?.getBoundingClientRect().top}px - 0.5rem - ${100}px)` // Adjusted top placement
-        })
-      }}
-    >
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 overflow-hidden">
-        {models.map((model) => (
-          <button
-            key={model.id}
-            onClick={() => {
-              setSelectedModel(model.id);
-              setShowModelSelector(false);
+    <>
+      <div className="px-2 sm:px-4 py-2 sm:py-4">
+        <motion.form
+          onSubmit={handleSubmit}
+          className={`group relative rounded-2xl transition-all duration-300 w-full max-w-3xl mx-auto 
+            ${isFocused 
+              ? 'bg-white/[0.05] shadow-[0_0_20px_rgba(204,43,94,0.3)]' 
+              : 'bg-white/[0.03]'
+            } backdrop-blur-xl border border-white/20`}
+        >
+          {/* Background glow effect */}
+          <motion.div 
+            className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 
+              group-hover:opacity-20 transition-opacity duration-300 blur-2xl rounded-2xl"
+            initial={{ opacity: 0 }}
+            whileHover={{ 
+              opacity: 0.25,
+              transition: { duration: 0.3 }
             }}
-            className={`p-0.5 rounded-lg text-white/80 hover:bg-white/10 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
-              selectedModel === model.id ? 'bg-white/20' : ''
-            }`}
-          >
-            {model.id === "gpt-3.5-turbo" ? (
-              <SiOpenai className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
-            ) : model.id === "gpt-4o-mini" ? (
-              <SiOpenai className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
-            ) : model.id === "gemini-flash-2.0" ? (
-              <TbBrandGoogleFilled className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
-            ) : model.id === "claude-3.5-haiku" ? (
-              <TbBrain className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
-            ) : model.id === "llama-3.3" ? (
-              <SiClarifai className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
-            ) : (
-              <HiSparkles className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-[#cc2b5e]" />
+          />
+
+          {/* Existing form content */}
+          <div className="relative z-10">
+            <div className="relative flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 sm:p-3">
+              <motion.button
+                type="button"
+                onClick={() => setShowModelSelector(!showModelSelector)}
+                className="flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 rounded-xl hover:bg-white/10 transition-all duration-200"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {getModelIcon(selectedModel)}
+                <span className="text-[10px] sm:text-xs text-[#cc2b5e]">
+                  {models.find(m => m.id === selectedModel)?.name}
+                </span>
+              </motion.button>
+
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}
+                placeholder="Message Audio-Smith..."
+                className="w-full sm:w-auto flex-1 bg-transparent px-2 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-white/90 placeholder:text-white/40 focus:outline-none rounded-xl transition-all duration-200 focus:bg-white/5 resize-none overflow-hidden min-h-[44px] max-h-[200px]"
+                rows={1}
+                style={{ height: 'auto' }}
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
+              />
+
+              <div className="flex items-center gap-1 sm:gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.txt,.mp3,.wav,.mp4"
+                />
+                <motion.button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2 rounded-xl hover:bg-white/10 transition-all duration-200"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <IoMdAttach className="h-4 w-4 text-[#cc2b5e] hover:text-[#753a88] transition-colors duration-200" />
+                </motion.button>
+
+                <motion.button
+                  type="button"
+                  onClick={handleVoiceInteraction}
+                  className={`p-2 rounded-xl transition-all duration-200 ${
+                    isRecording ? 'bg-red-500/20 hover:bg-red-500/30' : 'hover:bg-white/10'
+                  }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <FiMic className={`h-4 w-4 transition-colors duration-200 ${
+                    isRecording ? 'text-red-400' : 'text-[#cc2b5e] hover:text-[#753a88]'
+                  }`} />
+                </motion.button>
+
+                <motion.button
+                  type="submit"
+                  disabled={isLoading || !message.trim()}
+                  className={`p-2 rounded-xl transition-all duration-200 ${
+                    message.trim() ? 'bg-gradient-to-r from-[#cc2b5e] to-[#753a88] hover:opacity-90' : 'hover:bg-white/10'
+                  }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <FiSend className={`h-4 w-4 transition-colors duration-200 ${
+                    message.trim() ? 'text-white' : 'text-[#cc2b5e] hover:text-[#753a88]'
+                  }`} />
+                </motion.button>
+              </div>
+            </div>
+          </div>
+
+          {isLoading && (
+            <div className="absolute bottom-full left-0 right-0 mb-2 flex justify-center">
+              <motion.div
+                className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-xs text-white/70"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                Mr-Smith is thinking...
+              </motion.div>
+            </div>
+          )}
+
+          <AnimatePresence>
+            {showModelSelector && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute bottom-full left-0 mb-2 w-[280px] sm:w-[350px] bg-black/10 backdrop-blur-xl rounded-xl p-1.5 border border-white/10 z-50"
+              >
+                <div className="grid grid-cols-3 gap-1.5">
+                  {models.map((model) => (
+                    <button
+                      key={model.id}
+                      onClick={() => {
+                        setSelectedModel(model.id);
+                        setShowModelSelector(false);
+                      }}
+                      className={`p-1.5 rounded-lg text-white/80 hover:bg-white/10 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
+                        selectedModel === model.id ? 'bg-white/30' : ''
+                      }`}
+                    >
+                      {getModelIcon(model.id)}
+                      <span className="text-center text-[8px] sm:text-[10px] leading-tight">
+                        {model.name}
+                      </span>
+                      <span className="text-[8px] opacity-60">{model.cost}</span>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
             )}
-            <span className="text-center text-[6px] sm:text-[8px] md:text-[9px] leading-tight">
-              {model.name}
-            </span>
-            <span className="text-[5px] sm:text-[6px] opacity-60">{model.cost}</span>
-          </button>
-        ))}
+          </AnimatePresence>
+        </motion.form>
       </div>
-    </motion.div>
-  )}
-</AnimatePresence>
-      </motion.form>
 
       {isRecording && (
         <VoiceRecordingOverlay
@@ -682,7 +597,7 @@ function MessageInput({ onSendMessage }) {
           isProcessing={isProcessing}
         />
       )}
-    </div>
+    </>
   );
 }
 

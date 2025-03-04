@@ -4,18 +4,13 @@ import { motion, AnimatePresence } from "framer-motion"
 import { FiUser } from "react-icons/fi"
 import { BsChatLeftText } from "react-icons/bs"
 import { HiSparkles } from "react-icons/hi"
-import { FaRegCopy } from "react-icons/fa"
-import { LuCopyCheck } from "react-icons/lu"
 import { speakWithDeepgram, stopSpeaking } from '../utils/textToSpeech'
 import { sendEmailWithPDF } from '../utils/emailService'
 import { useAuth } from '../context/AuthContext'
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { TbBrandGoogleFilled } from "react-icons/tb"
-import { SiOpenai } from "react-icons/si"
-import { TbBrain } from "react-icons/tb"
-import { SiClarifai } from "react-icons/si"
-import { v4 as uuidv4 } from 'uuid'
+import { FaRegCopy } from "react-icons/fa"
+import { LuCopyCheck } from "react-icons/lu"
 
 function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onUpdateMessages }) {
   const { user } = useAuth()
@@ -25,16 +20,13 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const [streamingText, setStreamingText] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
-  const [copyStatus, setCopyStatus] = useState({})
   const messagesEndRef = useRef(null)
   const abortControllerRef = useRef(null)
   const [isLoadingChat, setIsLoadingChat] = useState(false)
   const saveInProgress = useRef(false)
   const pendingMessages = useRef([])
   const chatIdRef = useRef(null)
-  const [showModelSelector, setShowModelSelector] = useState(false)
-  const [selectedModel, setSelectedModel] = useState(null)
-  const [models, setModels] = useState([])
+  const [copyStatus, setCopyStatus] = useState({})
 
   // Initialize messages when activeChat changes
   useEffect(() => {
@@ -62,7 +54,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`https://smith-backend-psi.vercel.app/api/chats/${activeChat.id}`, {
+        const response = await fetch(`http://localhost:5000/api/chats/${activeChat.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -130,8 +122,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       const isTemporaryChat = chatIdRef.current.startsWith('temp_');
       
       const endpoint = isTemporaryChat 
-        ? 'https://smith-backend-psi.vercel.app/api/chats/save'
-        : `https://smith-backend-psi.vercel.app/api/chats/${chatIdRef.current}/update`;
+        ? 'http://localhost:5000/api/chats/save'
+        : `http://localhost:5000/api/chats/${chatIdRef.current}/update`;
       
       const method = isTemporaryChat ? 'POST' : 'PUT';
 
@@ -161,8 +153,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           chatIdRef.current = data.chat.id;
         }
 
-        // Make sure to update the messages state with the complete set
-        setMessages(messagesToSave);
         onUpdateMessages(messagesToSave);
         
         if (data.chat.title !== activeChat.title) {
@@ -323,122 +313,59 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     }
   }, [messages, onUpdateMessages]);
 
-  const addMessage = (content, role, isStreaming = false, voiceId = null) => {
-    const messageId = voiceId || uuidv4();
-    const isVoice = !!voiceId;
+  // Update the addMessage function
+  const addMessage = async (content, role, isStreaming = false) => {
+    if (!chatIdRef.current) return;
+  
     const newMessage = {
-        messageId,
-        content,
-        role,
-        timestamp: new Date().toISOString(),
-        isStreaming,
-        isVoice,
-        model: selectedModel, // Always associate the model
+      content,
+      role,
+      timestamp: new Date().toISOString()
     };
-
+  
     setMessages(prevMessages => {
-        if (role === 'user') {
-            // Add user messages directly
-            return [...prevMessages, newMessage];
-        } else { // role === 'assistant'
-            const lastStreamingIndex = prevMessages.findIndex(
-                msg => msg.isStreaming && msg.role === 'assistant' && msg.messageId.startsWith('streaming-')
-            );
-
-            if (isStreaming) {
-                if (lastStreamingIndex !== -1) {
-                    // Update existing streaming message in place
-                    const updatedMessages = [...prevMessages];
-                    updatedMessages[lastStreamingIndex] = {
-                        ...updatedMessages[lastStreamingIndex],
-                        content, // Update content
-                    };
-                    return updatedMessages;
-                } else {
-                    // If no existing streaming message, add a new one with a unique ID
-                    newMessage.messageId = `streaming-${uuidv4()}`; // Use a prefix for streaming messages
-                    return [...prevMessages, newMessage];
-                }
-            } else {
-                // Final assistant message.  Update in place if streaming existed.
-                if (lastStreamingIndex !== -1) {
-                    const updatedMessages = [...prevMessages];
-                    updatedMessages[lastStreamingIndex] = {
-                        ...updatedMessages[lastStreamingIndex],
-                        content,
-                        isStreaming: false,
-                        messageId: newMessage.messageId, // Use the final messageId
-                    };
-                    return updatedMessages;
-                } else {
-                    // If no streaming message was found, add the final message directly
-                    return [...prevMessages, newMessage];
-                }
-            }
-        }
+      let updatedMessages;
+      if (role === 'assistant' && prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === 'assistant' && (isStreaming || !isStreaming)) {
+        // Update the last assistant message, whether streaming or finalizing
+        updatedMessages = [...prevMessages];
+        updatedMessages[updatedMessages.length - 1] = newMessage;
+      } else {
+        // Add new message (for user or first assistant message)
+        updatedMessages = [...prevMessages, newMessage];
+      }
+  
+      // Save after AI response when stream is complete (non-streaming call)
+      if (role === 'assistant' && !isStreaming) {
+        saveMessages(updatedMessages);
+      }
+      
+      return updatedMessages;
     });
+  
+    if (role === "user") {
+      setIsFirstMessage(false);
+      setIsLoading(true);
+    } else if (role === "assistant") {
+      // Clear loading state when assistant response is received
+      setIsLoading(false);
+    }
   };
 
-  // Call saveMessages after a final assistant message is received
+  // Handle pending saves when loading state changes
   useEffect(() => {
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.role === 'assistant' && !lastMessage.isStreaming) {
-      saveMessages(messages);
+    if (!isLoading && pendingMessages.current.length > 0) {
+      saveMessages(pendingMessages.current);
     }
-  }, [messages]);
+  }, [isLoading]);
 
   const handleStopResponse = () => {
     stopSpeaking();
   };
 
-  // Add loading skeleton component
-  const LoadingSkeleton = () => (
-    <div className="space-y-4 p-4">
-      {[1, 2, 3].map((i) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className={`flex items-start gap-3 ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}
-        >
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] animate-pulse" />
-          <div className={`max-w-[70%] h-20 rounded-2xl animate-pulse ${
-            i % 2 === 0 
-              ? 'bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a]' 
-              : 'bg-[#1a1a1a]'
-          }`} />
-          {i % 2 === 0 && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] animate-pulse" />}
-        </motion.div>
-      ))}
-    </div>
-  );
-
-  // When creating new chat
-  const createNewChat = () => {
-    const newChat = {
-        id: `temp_${Date.now()}`, // Use consistent id property
-        title: 'New Chat',
-        messages: []
-    };
-  };
-
-  // Cleanup on unmount or chat change
-  useEffect(() => {
-    return () => {
-      setIsLoading(false);
-      saveInProgress.current = false;
-      chatIdRef.current = null;
-    };
-  }, [activeChat?.id]);
-
-  // Function to copy text to clipboard
-  const copyToClipboard = (text, messageId) => {
-    navigator.clipboard.writeText(text).then(() => {
-      console.log('Text copied to clipboard');
+  const copyToClipboard = (content, messageId) => {
+    navigator.clipboard.writeText(content).then(() => {
       setCopyStatus(prev => ({ ...prev, [messageId]: true }));
       setTimeout(() => setCopyStatus(prev => ({ ...prev, [messageId]: false })), 2000);
-    }).catch(err => {
-      console.error('Could not copy text: ', err);
     });
   };
 
@@ -541,113 +468,123 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     );
   };
 
-  // Add this new render function for the model selector
-  const renderModelSelector = () => (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={messageVariants}
-      className="flex items-start gap-3 mb-8 justify-start"
-    >
-      <motion.div
-        className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg"
-        whileHover={{ scale: 1.05 }}
-      >
-        <HiSparkles className="w-4 h-4 text-white" />
-      </motion.div>
-
-      <div className="max-w-[70%] px-4 py-3 rounded-2xl shadow-lg bg-[#1a1a1a] text-slate-200 border border-white/10">
-        <div className="grid grid-cols-3 gap-1">
-          {models.map((model) => (
-            <button
-              key={model.id}
-              onClick={() => {
-                setSelectedModel(model.id);
-                setShowModelSelector(false);
-              }}
-              className={`p-0.5 rounded-lg text-white/80 hover:bg-white/10 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
-                selectedModel === model.id ? 'bg-white/20' : ''
-              }`}
-            >
-              {model.id === "gemini-pro" ? (
-                <TbBrandGoogleFilled className="h-4 w-4 text-[#cc2b5e]" />
-              ) : model.id === "gpt-3.5-turbo" ? (
-                <SiOpenai className="h-4 w-4 text-[#cc2b5e]" />
-              ) : model.id === "claude-3-haiku" ? (
-                <TbBrain className="h-4 w-4 text-[#cc2b5e]" />
-              ) : model.id === "llama-v2-7b" ? (
-                <SiClarifai className="h-4 w-4 text-[#cc2b5e]" />
-              ) : (
-                <HiSparkles className="h-4 w-4 text-[#cc2b5e]" />
-              )}
-              <span className="text-center text-[7px] sm:text-[9px] leading-tight">
-                {model.name}
-              </span>
-              <span className="text-[6px] opacity-60">{model.cost}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </motion.div>
+  // Add loading skeleton component
+  const LoadingSkeleton = () => (
+    <div className="space-y-4 p-4">
+      {[1, 2, 3].map((i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className={`flex items-start gap-3 ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}
+        >
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] animate-pulse" />
+          <div className={`max-w-[70%] h-20 rounded-2xl animate-pulse ${
+            i % 2 === 0 
+              ? 'bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a]' 
+              : 'bg-[#1a1a1a]'
+          }`} />
+          {i % 2 === 0 && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] animate-pulse" />}
+        </motion.div>
+      ))}
+    </div>
   );
+
+  // When creating new chat
+  const createNewChat = () => {
+    const newChat = {
+        id: `temp_${Date.now()}`, // Use consistent id property
+        title: 'New Chat',
+        messages: []
+    };
+    setActiveChat(newChat);
+  };
+
+  // Cleanup on unmount or chat change
+  useEffect(() => {
+    return () => {
+      setIsLoading(false);
+      saveInProgress.current = false;
+      pendingMessages.current = [];
+      chatIdRef.current = null;
+    };
+  }, [activeChat?.id]);
 
   return (
     <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] ${
       isOpen ? 'lg:ml-0' : 'lg:ml-0'
     } transition-all duration-300`}>
       {/* Header */}
-      <div className="sticky top-0 z-20 px-2 sm:px-4 py-2 sm:py-4 flex items-center bg-[#0a0a0a]/80 backdrop-blur-lg h-[50px] sm:h-[60px]">
+      <div className="sticky top-0 z-20 px-3 sm:px-4 py-3 sm:py-4 flex items-center bg-[#0a0a0a]/80 backdrop-blur-lg h-[60px]">
         <div className="flex items-center justify-between w-full">
-          <div className="w-full flex items-center justify-center md:justify-start gap-2 sm:gap-3">
-            {/* Logo – Visible only on mobile (centered) */}
-            <div className="md:hidden flex items-center justify-center w-full">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 sm:w-10 sm:h-10">
-                  <img
-                    src="/vannipro.png"
-                    alt="Vaani.pro Logo"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <span className="text-lg sm:text-xl font-display font-bold text-white leading-none py-1">
-                  Vaani.pro
-                </span>
+          <div className="w-full flex items-center justify-center lg:justify-start gap-2 sm:gap-3">
+            {/* Logo - Visible only on mobile */}
+            <div className="lg:hidden flex items-center gap-2">
+              <div className="w-8 h-8 sm:w-10 sm:h-10">
+                <img
+                  src="/vannipro.png"
+                  alt="Vaani.pro Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
+              <span className="text-lg sm:text-xl font-display font-bold text-white leading-none py-1">
+                Vaani.pro
+              </span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide p-2 sm:p-4 space-y-6 sm:space-y-8 bg-[#0a0a0a]">
-        <div className="w-full max-w-3xl mx-auto">
-          {isLoadingChat ? (
-            <LoadingSkeleton />
-          ) : (
-            <>
-              {messages.map((message) => renderMessage(message, messages.indexOf(message)))}
-              {showModelSelector && renderModelSelector()}
-              <div ref={messagesEndRef} />
-            </>
-          )}
-        </div>
+      <div className="flex-1 overflow-y-auto scrollbar-hide p-3 sm:p-4 space-y-4 sm:space-y-6 bg-[#0a0a0a]">
+        {isLoadingChat ? (
+          <LoadingSkeleton />
+        ) : (
+          <>
+            {messages.map((message, index) => renderMessage(message, index))}
+            
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex justify-start"
+              >
+                <div className="flex items-center space-x-2 px-4 py-3 rounded-xl bg-[#1a1a1a] border border-white/10 shadow-lg">
+                  <motion.span
+                    className="w-2 h-2 bg-[#cc2b5e] rounded-full shadow-md"
+                    animate={{ y: ["0%", "-50%", "0%"] }}
+                    transition={{ duration: 0.8, repeat: Infinity, delay: 0 }}
+                  />
+                  <motion.span
+                    className="w-2 h-2 bg-[#cc2b5e] rounded-full shadow-md"
+                    animate={{ y: ["0%", "-50%", "0%"] }}
+                    transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 }}
+                  />
+                  <motion.span
+                    className="w-2 h-2 bg-[#cc2b5e] rounded-full shadow-md"
+                    animate={{ y: ["0%", "-50%", "0%"] }}
+                    transition={{ duration: 0.8, repeat: Infinity, delay: 0.4 }}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </>
+        )}
+        
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Predefined Prompts - Enhanced with more intense glow effect */}
-      <div className={`w-full ${isFirstMessage ? 'absolute top-1/2 -translate-y-1/2 z-[50]' : 'relative'}`}>
-        <div className="text-center mb-4">
-          {isFirstMessage && (
-            <>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-[#cc2b5e] via-[#cc2b5e] to-[#753a88] bg-clip-text text-transparent drop-shadow-[0_0px_20px_rgba(204,43,94,0.4)] animate-gradient">
-                Welcome to Vaani.pro
-              </h1>
-              <span className="text-lg sm:text-xl text-[#cc2b5e] mt-2 block">how may i help you Today ?</span>
-            </>
-          )}
-        </div>
+      <div className={`w-full ${isFirstMessage ? 'absolute top-1/2 -translate-y-1/2' : 'relative'}`}>
         {isFirstMessage && (
-          <div className="px-2 sm:px-4 py-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 max-w-3xl mx-auto px-2 sm:px-4">
+          <div className="px-4 py-6">
+            {/* Added Welcome Message */}
+            <div className="text-center mb-6">
+              <h1 className="text-3xl font-bold text-[#cc2b5e]">Welcome to Vaani.pro</h1>
+              <p className="text-gray-400 text-xl mt-2">How may I help you today?</p>
+            </div>
+            {/* Predefined Prompts */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl mx-auto">
               {predefinedPrompts.map((item) => (
                 <motion.div
                   key={item.id}
@@ -718,4 +655,3 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 }
 
 export default ChatContainer;
-
