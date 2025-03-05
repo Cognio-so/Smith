@@ -160,18 +160,18 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const predefinedPrompts = [
     {
       id: 1,
-      title: "Audio Analysis",
-      prompt: "Analyze this audio file and provide detailed feedback on its quality, composition, and potential improvements."
+      title: "General Assistant",
+      prompt: "Hi! I'd love to learn more about what you can help me with. What are your capabilities?"
     },
     {
       id: 2,
-      title: "Music Production",
-      prompt: "Help me create a production plan for my track, including mixing and mastering steps."
+      title: "Writing Help",
+      prompt: "Can you help me improve my writing skills? I'd like some tips and guidance."
     },
     {
       id: 3,
-      title: "Sound Design",
-      prompt: "Guide me through creating unique sound effects for my project using synthesis techniques."
+      title: "Code Assistant",
+      prompt: "I need help with programming. Can you explain how you can assist with coding?"
     }
   ];
 
@@ -527,7 +527,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   };
 
   return (
-    <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] ${
+    <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] overflow-hidden ${
       isOpen ? 'lg:ml-0' : 'lg:ml-0'
     } transition-all duration-300`}>
       <div className="sticky top-0 z-20 px-3 sm:px-4 py-3 sm:py-4 flex items-center bg-[#0a0a0a]/80 backdrop-blur-lg h-[60px]">

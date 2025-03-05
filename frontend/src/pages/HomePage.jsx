@@ -2,6 +2,7 @@ import React from 'react'
 import { Mic, ChevronRight, Zap, Cpu, Sliders, Play, Brain, Globe, Facebook, Twitter, Instagram, Linkedin, Sparkles } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom';
 
 const modelCards = [
   {
@@ -443,6 +444,7 @@ const HomePage = () => {
               Experience the power of Voice AI and transform the way you interact with technology
             </p>
             <div className="flex justify-center space-x-4">
+              <Link to="/dashboard">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -450,6 +452,8 @@ const HomePage = () => {
               >
                 Get Started for Free
               </motion.button>
+              </Link>
+
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
