@@ -29,19 +29,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const [copyStatus, setCopyStatus] = useState({})
 
   useEffect(() => {
-    if (activeChat) {
-      setMessages(activeChat.messages || [])
-      setIsFirstMessage(!activeChat.messages?.length)
-      chatIdRef.current = activeChat.id
-    }
-  }, [activeChat?.id])
-
-  useEffect(() => {
+    if (!activeChat?.id) return;
+    
+    chatIdRef.current = activeChat.id;
+    setIsLoadingChat(true);
+    
     const loadChat = async () => {
-      if (!activeChat?.id) return;
-      
-      setIsLoadingChat(true);
-      
       if (activeChat.id.startsWith('temp_')) {
         setMessages([]);
         setIsFirstMessage(true);
@@ -93,20 +86,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
     loadChat();
   }, [activeChat?.id]);
-
-  useEffect(() => {
-    if (activeChat?.messages) {
-      setMessages(activeChat.messages.map((msg, index) => ({
-        ...msg,
-        messageId: msg.messageId || `msg-${Date.now()}-${index}`,
-        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
-      })));
-      setIsFirstMessage(activeChat.messages.length === 0);
-    } else {
-      setMessages([]);
-      setIsFirstMessage(true);
-    }
-  }, [activeChat]);
 
   const saveMessages = async (messagesToSave) => {
     if (!chatIdRef.current || saveInProgress.current) return;
@@ -311,39 +290,43 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   }, [messages, onUpdateMessages]);
 
   const addMessage = async (content, role, isStreaming = false) => {
-    // Convert content to string immediately upon entry
     const safeContent = typeof content === 'string' 
       ? content 
       : (content && typeof content === 'object' 
         ? JSON.stringify(content) 
         : String(content));
     
-    console.log("addMessage called with:", { content: safeContent, role, isStreaming });
     if (!chatIdRef.current) return;
-  
-    const newMessage = {
-      messageId: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      content: safeContent,
-      role,
-      timestamp: new Date().toISOString()
-    };
-  
+
+    // Only update messages if it's a new message or final content
     setMessages(prevMessages => {
-      let updatedMessages;
-      if (role === 'assistant' && prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === 'assistant' && (isStreaming || !isStreaming)) {
-        updatedMessages = [...prevMessages];
-        updatedMessages[updatedMessages.length - 1] = newMessage;
-      } else {
-        updatedMessages = [...prevMessages, newMessage];
+      // If streaming and there's already a message, update the last message instead of adding new one
+      if (isStreaming && prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === 'assistant') {
+        const updatedMessages = [...prevMessages];
+        updatedMessages[updatedMessages.length - 1] = {
+          ...updatedMessages[updatedMessages.length - 1],
+          content: safeContent
+        };
+        return updatedMessages;
       }
 
+      // Otherwise add as new message
+      const newMessage = {
+        messageId: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        content: safeContent,
+        role,
+        timestamp: new Date().toISOString()
+      };
+      
+      const updatedMessages = [...prevMessages, newMessage];
+      
       if (role === 'assistant' && !isStreaming) {
         saveMessages(updatedMessages);
       }
       
       return updatedMessages;
     });
-  
+
     if (role === "user") {
       setIsFirstMessage(false);
       setIsLoading(true);
@@ -569,6 +552,20 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     };
   }, [activeChat?.id]);
 
+  // Filter duplicate messages before rendering
+  const getUniqueMessages = () => {
+    const seen = new Set();
+    return messages.filter(msg => {
+      const key = `${msg.role}-${msg.content}`;
+      if (seen.has(key)) {
+        console.log("Duplicate message filtered:", msg.content);
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  };
+
   return (
     <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] ${
       isOpen ? 'lg:ml-0' : 'lg:ml-0'
@@ -597,7 +594,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           <LoadingSkeleton />
         ) : (
           <>
-            {messages.map((message, index) => (
+            {getUniqueMessages().map((message, index) => (
               renderMessage(message, index)
             ))}
             

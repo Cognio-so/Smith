@@ -262,16 +262,12 @@ function MessageInput({ onSendMessage, isLoading }) {
   
       const reader = response.body.getReader();
       let accumulatedResponse = "";
-      let hasStartedStreaming = false;
   
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
-            if (currentRequestRef.current === requestId && accumulatedResponse.trim() && hasStartedStreaming) {
-              onSendMessage(accumulatedResponse.trim(), "assistant", false);
-            }
-            break;
+            break; // No final onSendMessage call here
           }
   
           const chunkText = new TextDecoder().decode(value);
@@ -281,7 +277,7 @@ function MessageInput({ onSendMessage, isLoading }) {
             if (line.startsWith("data: ")) {
               const jsonData = line.substring(6);
               if (jsonData === "[DONE]") {
-                // Stream complete
+                // Stream complete, do nothing extra
               } else {
                 try {
                   let parsedData;
@@ -291,10 +287,8 @@ function MessageInput({ onSendMessage, isLoading }) {
                     parsedData = jsonData; // Fallback to raw string
                   }
 
-                  // Extract the actual content string
                   let contentPiece;
                   if (typeof parsedData === 'object' && parsedData !== null) {
-                    // Check common response properties
                     contentPiece = parsedData.response || 
                                  parsedData.text || 
                                  parsedData.content || 
@@ -306,8 +300,7 @@ function MessageInput({ onSendMessage, isLoading }) {
                   accumulatedResponse += contentPiece;
 
                   if (currentRequestRef.current === requestId) {
-                    onSendMessage(accumulatedResponse, "assistant", true);
-                    hasStartedStreaming = true;
+                    onSendMessage(accumulatedResponse, "assistant", true); // Send each chunk for real-time typing
                   }
                 } catch (parseError) {
                   console.error("Error parsing JSON:", parseError);
