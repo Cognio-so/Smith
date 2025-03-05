@@ -88,19 +88,30 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   }, [activeChat?.id]);
 
   const saveMessages = async (messagesToSave) => {
-    if (!chatIdRef.current || saveInProgress.current) return;
+    if (!chatIdRef.current) {
+      console.log('Cannot save: chatIdRef.current is null');
+      return;
+    }
+    if (saveInProgress.current) {
+      console.log('Save in progress, queuing messages');
+      pendingMessages.current = messagesToSave;
+      return;
+    }
     
     saveInProgress.current = true;
 
     try {
-      console.log('Saving chat:', {
+      console.log('Attempting to save chat:', {
         chatId: chatIdRef.current,
         messageCount: messagesToSave.length
       });
 
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const isTemporaryChat = chatIdRef.current.startsWith('temp_');
-      
       const endpoint = isTemporaryChat 
         ? 'https://smith-backend-psi.vercel.app/api/chats/save'
         : `https://smith-backend-psi.vercel.app/api/chats/${chatIdRef.current}/update`;
@@ -124,12 +135,13 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to save chat');
+        throw new Error(data.error || `Failed to save chat: ${response.status}`);
       }
 
       if (data.success) {
         if (isTemporaryChat && data.chat?.id) {
           chatIdRef.current = data.chat.id;
+          console.log('Updated chatId to:', chatIdRef.current);
         }
 
         onUpdateMessages(messagesToSave);
@@ -141,12 +153,20 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         if (onChatSaved) {
           onChatSaved();
         }
+        console.log('Chat saved successfully');
+      } else {
+        throw new Error('Backend reported failure without error message');
       }
 
     } catch (error) {
-      console.error('Error saving chat:', error);
+      console.error('Error saving chat:', error.message);
     } finally {
       saveInProgress.current = false;
+      if (pendingMessages.current.length > 0) {
+        const queuedMessages = pendingMessages.current;
+        pendingMessages.current = [];
+        saveMessages(queuedMessages); // Process queued messages
+      }
     }
   };
 
@@ -298,9 +318,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     
     if (!chatIdRef.current) return;
 
-    // Only update messages if it's a new message or final content
     setMessages(prevMessages => {
-      // If streaming and there's already a message, update the last message instead of adding new one
       if (isStreaming && prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === 'assistant') {
         const updatedMessages = [...prevMessages];
         updatedMessages[updatedMessages.length - 1] = {
@@ -310,7 +328,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         return updatedMessages;
       }
 
-      // Otherwise add as new message
       const newMessage = {
         messageId: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         content: safeContent,
@@ -320,7 +337,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       
       const updatedMessages = [...prevMessages, newMessage];
       
-      if (role === 'assistant' && !isStreaming) {
+      // Save messages for all assistant responses (streaming or not)
+      if (role === 'assistant') {
         saveMessages(updatedMessages);
       }
       

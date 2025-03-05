@@ -193,28 +193,36 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
             onClick={() => handleChatClick(chat)}
           >
             {!isSidebarCollapsed && (
-              <div className={`flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br ${
-                activeChat?.id === (chat.id || chat.chatId) 
-                  ? 'from-[#cc2b5e] to-[#753a88] shadow-lg shadow-[#cc2b5e]/20' 
-                  : 'from-[#1a1a1a] to-[#2a2a2a]'
-              } flex items-center justify-center border border-white/10 transition-all duration-300`}>
-                <IoChatboxEllipses className={`h-4 w-4 transition-colors duration-300 ${
+              <>
+                <div className={`flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br ${
                   activeChat?.id === (chat.id || chat.chatId) 
-                    ? 'text-white' 
-                    : 'text-slate-400 group-hover:text-[#cc2b5e]'
-                }`} />
-              </div>
-            )}
-            {!isSidebarCollapsed && (
-              <div className="flex-1 min-w-0">
-                <span className={`text-sm truncate block transition-colors duration-300 ${
-                  activeChat?.id === (chat.id || chat.chatId) 
-                    ? 'text-slate-200 font-medium' 
-                    : 'text-slate-400 group-hover:text-slate-200'
-                }`}>
-                  {chat.title || 'New Chat'}
-                </span>
-              </div>
+                    ? 'from-[#cc2b5e] to-[#753a88] shadow-lg shadow-[#cc2b5e]/20' 
+                    : 'from-[#1a1a1a] to-[#2a2a2a]'
+                } flex items-center justify-center border border-white/10 transition-all duration-300`}>
+                  <IoChatboxEllipses className={`h-4 w-4 transition-colors duration-300 ${
+                    activeChat?.id === (chat.id || chat.chatId) 
+                      ? 'text-white' 
+                      : 'text-slate-400 group-hover:text-[#cc2b5e]'
+                  }`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col">
+                    <span className={`text-sm truncate block transition-colors duration-300 ${
+                      activeChat?.id === (chat.id || chat.chatId) 
+                        ? 'text-slate-200 font-medium' 
+                        : 'text-slate-400 group-hover:text-slate-200'
+                    }`}>
+                      {chat.title || 'New Chat'}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {new Date(chat.lastUpdated || chat.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         ))}
