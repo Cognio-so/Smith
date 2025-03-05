@@ -573,7 +573,7 @@ function MessageInput({ onSendMessage, isLoading }) {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="absolute bottom-full left-0 mb-2 w-[280px] sm:w-[350px] bg-black/10 backdrop-blur-xl rounded-xl p-1.5 border border-white/10 z-50"
+                className="absolute bottom-full left-0 mb-2 w-[280px] sm:w-[350px] bg-black rounded-xl p-1.5 border border-white/10 z-50"
               >
                 <div className="grid grid-cols-3 gap-1.5">
                   {models.map((model) => (
