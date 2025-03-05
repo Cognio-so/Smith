@@ -513,14 +513,14 @@ function MessageInput({ onSendMessage, isLoading }) {
                   type="button"
                   onClick={() => setUseAgent(!useAgent)}
                   className={`p-2 rounded-xl transition-all duration-200 ${
-                    useAgent ? 'bg-[#cc2b5e]/20 hover:bg-[#cc2b5e]/30' : 'hover:bg-white/10'
+                    useAgent ? 'bg-red-500/20 hover:bg-red-500/30' : 'hover:bg-white/10'
                   }`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   title={useAgent ? "Using Agent (with web search)" : "Switch to Agent mode"}
                 >
                   <RiRobot2Line className={`h-4 w-4 transition-colors duration-200 ${
-                    useAgent ? 'text-[#cc2b5e]' : 'text-white/70 hover:text-white'
+                    useAgent ? 'text-[#cc2b5e]' : 'text-[#cc2b5e] hover:text-[#753a88]'
                   }`} />
                 </motion.button>
 
