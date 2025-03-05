@@ -29,12 +29,19 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const [copyStatus, setCopyStatus] = useState({})
 
   useEffect(() => {
-    if (!activeChat?.id) return;
-    
-    chatIdRef.current = activeChat.id;
-    setIsLoadingChat(true);
-    
+    if (activeChat) {
+      setMessages(activeChat.messages || [])
+      setIsFirstMessage(!activeChat.messages?.length)
+      chatIdRef.current = activeChat.id
+    }
+  }, [activeChat?.id])
+
+  useEffect(() => {
     const loadChat = async () => {
+      if (!activeChat?.id) return;
+      
+      setIsLoadingChat(true);
+      
       if (activeChat.id.startsWith('temp_')) {
         setMessages([]);
         setIsFirstMessage(true);
@@ -87,21 +94,27 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     loadChat();
   }, [activeChat?.id]);
 
+  useEffect(() => {
+    if (activeChat?.messages) {
+      setMessages(activeChat.messages.map((msg, index) => ({
+        ...msg,
+        messageId: msg.messageId || `msg-${Date.now()}-${index}`,
+        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+      })));
+      setIsFirstMessage(activeChat.messages.length === 0);
+    } else {
+      setMessages([]);
+      setIsFirstMessage(true);
+    }
+  }, [activeChat]);
+
   const saveMessages = async (messagesToSave) => {
-    if (!chatIdRef.current) {
-      console.log('Cannot save: chatIdRef.current is null');
-      return;
-    }
-    if (saveInProgress.current) {
-      console.log('Save in progress, queuing messages');
-      pendingMessages.current = messagesToSave;
-      return;
-    }
+    if (!chatIdRef.current || saveInProgress.current) return;
     
     saveInProgress.current = true;
 
     try {
-      console.log('Attempting to save chat:', {
+      console.log('Saving chat:', {
         chatId: chatIdRef.current,
         messageCount: messagesToSave.length
       });
@@ -128,21 +141,16 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           messages: messagesToSave
         })
       });
-      const data = await response.json();
 
-      // Check for 401 Unauthorized status
-      if (response.status === 401) {
-        throw new Error('Unauthorized: Please log in again.');
-      }
+      const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || `Failed to save chat: ${response.status}`);
+        throw new Error(data.error || 'Failed to save chat');
       }
 
       if (data.success) {
         if (isTemporaryChat && data.chat?.id) {
           chatIdRef.current = data.chat.id;
-          console.log('Updated chatId to:', chatIdRef.current);
         }
 
         onUpdateMessages(messagesToSave);
@@ -154,28 +162,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         if (onChatSaved) {
           onChatSaved();
         }
-        console.log('Chat saved successfully');
-      } else {
-        throw new Error('Backend reported failure without error message');
       }
 
     } catch (error) {
-      console.error('Error saving chat:', error.message);
-      // Display a user-friendly error message, especially for unauthorized errors.
-      setMessages(prev => [...prev, {
-          messageId: `error-${Date.now()}`,
-          content: `Error saving chat: ${error.message}`,
-          role: "system",
-          timestamp: new Date().toISOString()
-        }]);
-
+      console.error('Error saving chat:', error);
     } finally {
       saveInProgress.current = false;
-      if (pendingMessages.current.length > 0) {
-        const queuedMessages = pendingMessages.current;
-        pendingMessages.current = [];
-        saveMessages(queuedMessages); // Process queued messages
-      }
     }
   };
 
@@ -319,41 +311,32 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   }, [messages, onUpdateMessages]);
 
   const addMessage = async (content, role, isStreaming = false) => {
-    const safeContent = typeof content === 'string' 
-      ? content 
-      : (content && typeof content === 'object' 
-        ? JSON.stringify(content) 
-        : String(content));
-    
+    console.log("addMessage called with:", { content, role, isStreaming });
     if (!chatIdRef.current) return;
-
+  
+    const newMessage = {
+      messageId: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      content: typeof content === 'string' ? content : JSON.stringify(content),
+      role,
+      timestamp: new Date().toISOString()
+    };
+  
     setMessages(prevMessages => {
-      if (isStreaming && prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === 'assistant') {
-        const updatedMessages = [...prevMessages];
-        updatedMessages[updatedMessages.length - 1] = {
-          ...updatedMessages[updatedMessages.length - 1],
-          content: safeContent
-        };
-        return updatedMessages;
+      let updatedMessages;
+      if (role === 'assistant' && prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === 'assistant' && (isStreaming || !isStreaming)) {
+        updatedMessages = [...prevMessages];
+        updatedMessages[updatedMessages.length - 1] = newMessage;
+      } else {
+        updatedMessages = [...prevMessages, newMessage];
       }
 
-      const newMessage = {
-        messageId: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        content: safeContent,
-        role,
-        timestamp: new Date().toISOString()
-      };
-      
-      const updatedMessages = [...prevMessages, newMessage];
-      
-      // Save messages for all assistant responses (streaming or not)
-      if (role === 'assistant') {
+      if (role === 'assistant' && !isStreaming) {
         saveMessages(updatedMessages);
       }
       
       return updatedMessages;
     });
-
+  
     if (role === "user") {
       setIsFirstMessage(false);
       setIsLoading(true);
@@ -422,102 +405,40 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               <div className="text-xs text-[#cc2b5e] mb-1">🎤 Voice Message</div>
             )}
             
-            <div className="prose prose-invert max-w-none overflow-x-auto">
+            <div style={{ overflowX: "auto", width: "100%" }}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  li: ({ node, ...props }) => (
-                    <li {...props} className="my-1">
-                      {props.children}
-                    </li>
-                  ),
-                  h1: ({ node, ...props }) => <h1 {...props} className="text-2xl font-bold my-4" />,
-                  h2: ({ node, ...props }) => <h2 {...props} className="text-xl font-bold my-3" />,
-                  h3: ({ node, ...props }) => <h3 {...props} className="text-lg font-bold my-2" />,
-                  p: ({ node, ...props }) => <p {...props} className="my-2" />,
-                  ul: ({ node, ...props }) => <ul {...props} className="list-disc pl-5 my-3" />,
-                  ol: ({ node, ...props }) => <ol {...props} className="list-decimal pl-5 my-3" />,
-                  strong: ({ node, ...props }) => <strong {...props} className="font-bold" />,
-                  a: ({ node, ...props }) => <a {...props} className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer" />,
-                  blockquote: ({ node, ...props }) => <blockquote {...props} className="border-l-4 border-gray-400 pl-4 italic my-3" />,
-                  code: ({ node, inline, className, children, ...props }) => {
-                    const match = /language-(\w+)/.exec(className || '');
-                    const language = match ? match[1] : '';
-                    const id = `code-${Math.random().toString(36).substr(2, 9)}`;
-                    
+                  table: ({ node, ...props }) => <table style={{ width: '100%', borderCollapse: 'collapse' }} {...props} />,
+                  thead: ({ node, ...props }) => <thead style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }} {...props} />,
+                  tr: ({ node, ...props }) => <tr style={{ backgroundColor: node.index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'inherit' }} {...props} />,
+                  th: ({ node, ...props }) => <th style={{ border: '1px solid rgba(255, 255, 255, 0.2)', padding: '8px', textAlign: 'left' }} {...props} />,
+                  td: ({ node, ...props }) => <td style={{ border: '1px solid rgba(255, 255, 255, 0.2)', padding: '8px', textAlign: 'left' }} {...props} />,
+                  h1: ({ node, ...props }) => <h1 style={{ fontSize: '1.5em', fontWeight: 'bold' }} {...props} />,
+                  h2: ({ node, ...props }) => <h2 style={{ fontSize: '1.25em', fontWeight: 'bold' }} {...props} />,
+                  h3: ({ node, ...props }) => <h3 style={{ fontSize: '1.1em', fontWeight: 'bold' }} {...props} />,
+                  code: ({ node, inline, ...props }) => {
+                    const content = String(props.children).trim();
                     return inline ? (
-                      <code
-                        {...props}
-                        className="bg-[#2d333b]/30 text-white/90 text-sm font-mono rounded px-1 py-0.5"
-                      >
-                        {children}
-                      </code>
+                      <code {...props} />
                     ) : (
-                      <div className="relative my-4 rounded-md overflow-hidden border border-white/10">
-                        {language && (
-                          <div className="bg-[#1e1e1e] text-white/60 text-xs px-4 py-1 border-b border-white/10">
-                            {language}
-                          </div>
-                        )}
-                        <div 
-                          className="absolute right-2 top-2 cursor-pointer hover:bg-[#2d333b] p-1 rounded"
-                          onClick={() => copyToClipboard(String(children).replace(/\n$/, ''), id)}
+                      <pre {...props} style={{ position: 'relative' }}>
+                        <button
+                          onClick={() => copyToClipboard(content, message.messageId)}
+                          className="absolute top-1 right-1 text-xs text-white bg-gray-700 rounded px-2 py-1 hover:bg-gray-600"
                         >
-                          {copyStatus[id] ? (
-                            <LuCopyCheck className="w-4 h-4 text-white/60" />
-                          ) : (
-                            <FaRegCopy className="w-4 h-4 text-white/60" />
-                          )}
-                        </div>
-                        <pre
-                          {...props}
-                          id={id}
-                          className="bg-[#1e1e1e] text-white/90 text-sm font-mono p-4 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-700"
-                        >
-                          <code className={language ? `language-${language}` : ''}>
-                            {children}
-                          </code>
-                        </pre>
-                      </div>
+                          {copyStatus[message.messageId] ? <LuCopyCheck /> : <FaRegCopy />}
+                        </button>
+                        <code>{content}</code>
+                      </pre>
                     );
                   },
-                  table: ({ node, children, ...props }) => (
-                    <div className="overflow-x-auto my-4 border border-white/10 rounded-md">
-                      <table {...props} className="min-w-full border-collapse">
-                        {children}
-                      </table>
-                    </div>
-                  ),
-                  thead: ({ node, children, ...props }) => (
-                    <thead {...props} className="bg-[#2d333b]/50 border-b border-white/10">
-                      {children}
-                    </thead>
-                  ),
-                  tbody: ({ node, children, ...props }) => (
-                    <tbody {...props} className="bg-[#1e1e1e]/30">
-                      {children}
-                    </tbody>
-                  ),
-                  tr: ({ node, children, ...props }) => (
-                    <tr {...props} className="border-b border-white/10 hover:bg-[#2d333b]/30">
-                      {children}
-                    </tr>
-                  ),
-                  th: ({ node, children, ...props }) => (
-                    <th
-                      {...props}
-                      className="px-4 py-2 text-left text-sm font-medium text-white/90 border-r border-white/10 last:border-r-0"
-                    >
-                      {children}
-                    </th>
-                  ),
-                  td: ({ node, children, ...props }) => (
-                    <td
-                      {...props}
-                      className="px-4 py-2 text-sm text-white/80 border-r border-white/10 last:border-r-0"
-                    >
-                      {children}
-                    </td>
+                  ul: ({ node, ...props }) => <ul {...props} />,
+                  ol: ({ node, ...props }) => <ol {...props} />,
+                  li: ({ node, ...props }) => (
+                    <li key={props.node.key} {...props}>
+                      {props.children}
+                    </li>
                   ),
                 }}
               >
@@ -579,20 +500,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     };
   }, [activeChat?.id]);
 
-  // Filter duplicate messages before rendering
-  const getUniqueMessages = () => {
-    const seen = new Set();
-    return messages.filter(msg => {
-      const key = `${msg.role}-${msg.content}`;
-      if (seen.has(key)) {
-        console.log("Duplicate message filtered:", msg.content);
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-  };
-
   return (
     <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] ${
       isOpen ? 'lg:ml-0' : 'lg:ml-0'
@@ -621,7 +528,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           <LoadingSkeleton />
         ) : (
           <>
-            {getUniqueMessages().map((message, index) => (
+            {messages.map((message, index) => (
               renderMessage(message, index)
             ))}
             
