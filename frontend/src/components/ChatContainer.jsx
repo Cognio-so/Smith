@@ -133,6 +133,11 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       });
 
       const data = await response.json();
+
+      // Check for 401 Unauthorized status
+      if (response.status === 401) {
+        throw new Error('Unauthorized: Please log in again.');
+      }
       
       if (!response.ok) {
         throw new Error(data.error || `Failed to save chat: ${response.status}`);
@@ -160,6 +165,14 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
     } catch (error) {
       console.error('Error saving chat:', error.message);
+      // Display a user-friendly error message, especially for unauthorized errors.
+      setMessages(prev => [...prev, {
+          messageId: `error-${Date.now()}`,
+          content: `Error saving chat: ${error.message}`,
+          role: "system",
+          timestamp: new Date().toISOString()
+        }]);
+
     } finally {
       saveInProgress.current = false;
       if (pendingMessages.current.length > 0) {
