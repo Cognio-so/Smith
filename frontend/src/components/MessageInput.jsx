@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { startSpeechToTextStreaming } from '../utils/speechToTextStreaming';
 import { speakWithDeepgram } from '../utils/textToSpeech';
 import VoiceRecordingOverlay from './VoiceRecordingOverlay';
+import { RiRobot2Line } from "react-icons/ri";
 
 function MessageInput({ onSendMessage, isLoading }) {
   const [message, setMessage] = useState("");
@@ -46,6 +47,7 @@ function MessageInput({ onSendMessage, isLoading }) {
   const abortControllerRef = useRef(null);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const speechTimeoutRef = useRef(null);
+  const [useAgent, setUseAgent] = useState(false);
 
   const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000' || 'https://py-backend-algohype.replit.app';
 
@@ -235,7 +237,10 @@ function MessageInput({ onSendMessage, isLoading }) {
       stopSpeaking();
   
       const token = localStorage.getItem('token');
-      const response = await fetch(`${PYTHON_API_URL}/chat`, {
+      
+      const endpoint = useAgent ? `/agent-chat` : `/chat`;
+      
+      const response = await fetch(`${PYTHON_API_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -513,6 +518,21 @@ function MessageInput({ onSendMessage, isLoading }) {
 
                 <motion.button
                   type="button"
+                  onClick={() => setUseAgent(!useAgent)}
+                  className={`p-2 rounded-xl transition-all duration-200 ${
+                    useAgent ? 'bg-[#cc2b5e]/20 hover:bg-[#cc2b5e]/30' : 'hover:bg-white/10'
+                  }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title={useAgent ? "Using Agent (with web search)" : "Switch to Agent mode"}
+                >
+                  <RiRobot2Line className={`h-4 w-4 transition-colors duration-200 ${
+                    useAgent ? 'text-[#cc2b5e]' : 'text-white/70 hover:text-white'
+                  }`} />
+                </motion.button>
+
+                <motion.button
+                  type="button"
                   onClick={handleVoiceInteraction}
                   className={`p-2 rounded-xl transition-all duration-200 ${
                     isRecording ? 'bg-red-500/20 hover:bg-red-500/30' : 'hover:bg-white/10'
@@ -549,7 +569,7 @@ function MessageInput({ onSendMessage, isLoading }) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                Mr-Smith is thinking...
+                {useAgent ? "Agent is searching & thinking..." : "Mr-Smith is thinking..."}
               </motion.div>
             </div>
           )}

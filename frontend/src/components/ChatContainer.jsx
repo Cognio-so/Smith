@@ -412,40 +412,102 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               <div className="text-xs text-[#cc2b5e] mb-1">🎤 Voice Message</div>
             )}
             
-            <div style={{ overflowX: "auto", width: "100%" }}>
+            <div className="prose prose-invert max-w-none overflow-x-auto">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  table: ({ node, ...props }) => <table style={{ width: '100%', borderCollapse: 'collapse' }} {...props} />,
-                  thead: ({ node, ...props }) => <thead style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }} {...props} />,
-                  tr: ({ node, ...props }) => <tr style={{ backgroundColor: node.index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'inherit' }} {...props} />,
-                  th: ({ node, ...props }) => <th style={{ border: '1px solid rgba(255, 255, 255, 0.2)', padding: '8px', textAlign: 'left' }} {...props} />,
-                  td: ({ node, ...props }) => <td style={{ border: '1px solid rgba(255, 255, 255, 0.2)', padding: '8px', textAlign: 'left' }} {...props} />,
-                  h1: ({ node, ...props }) => <h1 style={{ fontSize: '1.5em', fontWeight: 'bold' }} {...props} />,
-                  h2: ({ node, ...props }) => <h2 style={{ fontSize: '1.25em', fontWeight: 'bold' }} {...props} />,
-                  h3: ({ node, ...props }) => <h3 style={{ fontSize: '1.1em', fontWeight: 'bold' }} {...props} />,
-                  code: ({ node, inline, ...props }) => {
-                    const content = String(props.children).trim();
-                    return inline ? (
-                      <code {...props} />
-                    ) : (
-                      <pre {...props} style={{ position: 'relative' }}>
-                        <button
-                          onClick={() => copyToClipboard(content, message.messageId)}
-                          className="absolute top-1 right-1 text-xs text-white bg-gray-600 rounded px-2 py-1 hover:bg-gray-600"
-                        >
-                          {copyStatus[message.messageId] ? <LuCopyCheck /> : <FaRegCopy />}
-                        </button>
-                        <code>{content}</code>
-                      </pre>
-                    );
-                  },
-                  ul: ({ node, ...props }) => <ul {...props} />,
-                  ol: ({ node, ...props }) => <ol {...props} />,
                   li: ({ node, ...props }) => (
-                    <li key={props.node.key} {...props}>
+                    <li {...props} className="my-1">
                       {props.children}
                     </li>
+                  ),
+                  h1: ({ node, ...props }) => <h1 {...props} className="text-2xl font-bold my-4" />,
+                  h2: ({ node, ...props }) => <h2 {...props} className="text-xl font-bold my-3" />,
+                  h3: ({ node, ...props }) => <h3 {...props} className="text-lg font-bold my-2" />,
+                  p: ({ node, ...props }) => <p {...props} className="my-2" />,
+                  ul: ({ node, ...props }) => <ul {...props} className="list-disc pl-5 my-3" />,
+                  ol: ({ node, ...props }) => <ol {...props} className="list-decimal pl-5 my-3" />,
+                  strong: ({ node, ...props }) => <strong {...props} className="font-bold" />,
+                  a: ({ node, ...props }) => <a {...props} className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer" />,
+                  blockquote: ({ node, ...props }) => <blockquote {...props} className="border-l-4 border-gray-400 pl-4 italic my-3" />,
+                  code: ({ node, inline, className, children, ...props }) => {
+                    const match = /language-(\w+)/.exec(className || '');
+                    const language = match ? match[1] : '';
+                    const id = `code-${Math.random().toString(36).substr(2, 9)}`;
+                    
+                    return inline ? (
+                      <code
+                        {...props}
+                        className="bg-[#2d333b]/30 text-white/90 text-sm font-mono rounded px-1 py-0.5"
+                      >
+                        {children}
+                      </code>
+                    ) : (
+                      <div className="relative my-4 rounded-md overflow-hidden border border-white/10">
+                        {language && (
+                          <div className="bg-[#1e1e1e] text-white/60 text-xs px-4 py-1 border-b border-white/10">
+                            {language}
+                          </div>
+                        )}
+                        <div 
+                          className="absolute right-2 top-2 cursor-pointer hover:bg-[#2d333b] p-1 rounded"
+                          onClick={() => copyToClipboard(String(children).replace(/\n$/, ''), id)}
+                        >
+                          {copyStatus[id] ? (
+                            <LuCopyCheck className="w-4 h-4 text-white/60" />
+                          ) : (
+                            <FaRegCopy className="w-4 h-4 text-white/60" />
+                          )}
+                        </div>
+                        <pre
+                          {...props}
+                          id={id}
+                          className="bg-[#1e1e1e] text-white/90 text-sm font-mono p-4 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-700"
+                        >
+                          <code className={language ? `language-${language}` : ''}>
+                            {children}
+                          </code>
+                        </pre>
+                      </div>
+                    );
+                  },
+                  table: ({ node, children, ...props }) => (
+                    <div className="overflow-x-auto my-4 border border-white/10 rounded-md">
+                      <table {...props} className="min-w-full border-collapse">
+                        {children}
+                      </table>
+                    </div>
+                  ),
+                  thead: ({ node, children, ...props }) => (
+                    <thead {...props} className="bg-[#2d333b]/50 border-b border-white/10">
+                      {children}
+                    </thead>
+                  ),
+                  tbody: ({ node, children, ...props }) => (
+                    <tbody {...props} className="bg-[#1e1e1e]/30">
+                      {children}
+                    </tbody>
+                  ),
+                  tr: ({ node, children, ...props }) => (
+                    <tr {...props} className="border-b border-white/10 hover:bg-[#2d333b]/30">
+                      {children}
+                    </tr>
+                  ),
+                  th: ({ node, children, ...props }) => (
+                    <th
+                      {...props}
+                      className="px-4 py-2 text-left text-sm font-medium text-white/90 border-r border-white/10 last:border-r-0"
+                    >
+                      {children}
+                    </th>
+                  ),
+                  td: ({ node, children, ...props }) => (
+                    <td
+                      {...props}
+                      className="px-4 py-2 text-sm text-white/80 border-r border-white/10 last:border-r-0"
+                    >
+                      {children}
+                    </td>
                   ),
                 }}
               >
