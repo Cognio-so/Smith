@@ -86,32 +86,20 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
     loadChat();
   }, [activeChat?.id]);
-
   const saveMessages = async (messagesToSave) => {
-    if (!chatIdRef.current) {
-      console.log('Cannot save: chatIdRef.current is null');
-      return;
-    }
-    if (saveInProgress.current) {
-      console.log('Save in progress, queuing messages');
-      pendingMessages.current = messagesToSave;
-      return;
-    }
+    if (!chatIdRef.current || saveInProgress.current) return;
     
     saveInProgress.current = true;
 
     try {
-      console.log('Attempting to save chat:', {
+      console.log('Saving chat:', {
         chatId: chatIdRef.current,
         messageCount: messagesToSave.length
       });
 
       const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       const isTemporaryChat = chatIdRef.current.startsWith('temp_');
+      
       const endpoint = isTemporaryChat 
         ? 'https://smith-backend-psi.vercel.app/api/chats/save'
         : `https://smith-backend-psi.vercel.app/api/chats/${chatIdRef.current}/update`;
@@ -133,20 +121,14 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       });
 
       const data = await response.json();
-
-      // Check for 401 Unauthorized status
-      if (response.status === 401) {
-        throw new Error('Unauthorized: Please log in again.');
-      }
       
       if (!response.ok) {
-        throw new Error(data.error || `Failed to save chat: ${response.status}`);
+        throw new Error(data.error || 'Failed to save chat');
       }
 
       if (data.success) {
         if (isTemporaryChat && data.chat?.id) {
           chatIdRef.current = data.chat.id;
-          console.log('Updated chatId to:', chatIdRef.current);
         }
 
         onUpdateMessages(messagesToSave);
@@ -158,28 +140,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         if (onChatSaved) {
           onChatSaved();
         }
-        console.log('Chat saved successfully');
-      } else {
-        throw new Error('Backend reported failure without error message');
       }
 
     } catch (error) {
-      console.error('Error saving chat:', error.message);
-      // Display a user-friendly error message, especially for unauthorized errors.
-      setMessages(prev => [...prev, {
-          messageId: `error-${Date.now()}`,
-          content: `Error saving chat: ${error.message}`,
-          role: "system",
-          timestamp: new Date().toISOString()
-        }]);
-
+      console.error('Error saving chat:', error);
     } finally {
       saveInProgress.current = false;
-      if (pendingMessages.current.length > 0) {
-        const queuedMessages = pendingMessages.current;
-        pendingMessages.current = [];
-        saveMessages(queuedMessages); // Process queued messages
-      }
     }
   };
 
