@@ -19,11 +19,8 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["langgraph.templates.react_agent", "react_agent"]
-[tool.setuptools.package-dir]
-"langgraph.templates.react_agent" = "src/react_agent"
-"react_agent" = "src/react_agent"
-
+packages = ["react_agent"]
+package-dir = {"react_agent" = "src/react_agent"}
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]

@@ -6,8 +6,8 @@
         "use": "@vercel/python",
         "config": {
           "maxLambdaSize": "50mb",
-          "runtime": "python3.9",
-          "includedFiles": ["*.py", "src/**/*.py"]
+          "includeFiles": ["llm.py", ".env", "src/react_agent/**"],
+          "excludeFiles": ["**/*.pyc", "**/__pycache__/**"]
         }
       }
     ],

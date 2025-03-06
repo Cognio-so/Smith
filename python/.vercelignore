@@ -1,9 +1,11 @@
-# Ignore development and test files
+# Exclude unnecessary files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.env.local
 .Python
+env/
 build/
 develop-eggs/
 dist/
@@ -15,23 +17,20 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Ignore source controls and documentation files
+.pytest_cache/
+.coverage
+htmlcov/
 .git/
 .github/
+
+# Ignore source controls and documentation files
 .gitignore
 .gitattributes
 README.md
 docs/
 tests/
 examples/
-notebooks/
-
-# Ignore cache and test directories
-.pytest_cache/
-.coverage
-htmlcov/ 
+notebooks/ 
