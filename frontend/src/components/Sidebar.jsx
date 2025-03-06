@@ -12,7 +12,6 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
   const [showUserDetails, setShowUserDetails] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [chatHistory, setChatHistory] = useState([])
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [categorizedChats, setCategorizedChats] = useState({
     today: [],
@@ -95,15 +94,23 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
     createNewChat(newChat);
   };
 
-  const filteredChats = chatHistory.filter(chat => 
-    chat.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const getFilteredCategorizedChats = () => {
+    if (!searchQuery) return categorizedChats;
 
-  const sortedChats = [...filteredChats].sort((a, b) => {
-    const dateA = new Date(a.lastUpdated || 0);
-    const dateB = new Date(b.lastUpdated || 0);
-    return dateB - dateA;
-  });
+    const filterChats = (chats) => {
+      return chats.filter(chat => 
+        chat.title?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    };
+
+    return {
+      today: filterChats(categorizedChats.today || []),
+      yesterday: filterChats(categorizedChats.yesterday || []),
+      lastWeek: filterChats(categorizedChats.lastWeek || []),
+      lastMonth: filterChats(categorizedChats.lastMonth || []),
+      older: filterChats(categorizedChats.older || [])
+    };
+  };
 
   const refreshChatHistory = async () => {
     try {
@@ -320,11 +327,18 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-hide px-2 py-1">
-          {renderChatList(categorizedChats.today, 'Today')}
-          {renderChatList(categorizedChats.yesterday, 'Yesterday')}
-          {renderChatList(categorizedChats.lastWeek, 'Last 7 Days')}
-          {renderChatList(categorizedChats.lastMonth, 'Last Month')}
-          {renderChatList(categorizedChats.older, 'Older')}
+          {(() => {
+            const filteredChats = getFilteredCategorizedChats();
+            return (
+              <>
+                {renderChatList(filteredChats.today, 'Today')}
+                {renderChatList(filteredChats.yesterday, 'Yesterday')}
+                {renderChatList(filteredChats.lastWeek, 'Last 7 Days')}
+                {renderChatList(filteredChats.lastMonth, 'Last Month')}
+                {renderChatList(filteredChats.older, 'Older')}
+              </>
+            );
+          })()}
         </div>
 
         <div className="relative p-2 border-t border-white/10">

@@ -26,12 +26,15 @@ function MessageInput({ onSendMessage, isLoading }) {
   const stopRef = useRef(null);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
-  const [models, setModels] = useState([
-    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
-    { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
-    { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
-    { id: "llama-v3-7b", name: "Llama 3.1 8B", cost: "Free/Cheap" },
-  ]);
+ // Replace the models array with the correct Llama model ID
+const [models, setModels] = useState([
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
+  { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
+  { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
+  { id: "accounts/fireworks/models/llama-v3p1-8b-instruct", name: "Llama 3.1 8B", cost: "Free/Cheap" }, // Updated ID
+]);
+
+// Update the default selected model if needed
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const processingTimeoutRef = useRef(null);
