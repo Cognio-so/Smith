@@ -10,9 +10,14 @@ from uuid import uuid4
 import time
 from starlette.background import BackgroundTask
 # Import the React Agent
-from react_agent.graph import graph
-from react_agent.configuration import Configuration
-from langchain_core.messages import HumanMessage, AIMessage
+try:
+    from react_agent.graph import graph
+    from react_agent.configuration import Configuration
+    from langchain_core.messages import HumanMessage, AIMessage
+    AGENT_AVAILABLE = True
+except ImportError:
+    logger.warning("React agent not available. Agent functionality will be disabled.")
+    AGENT_AVAILABLE = False
 import asyncio
 
 # Load environment variables
@@ -193,6 +198,13 @@ async def voice_chat_endpoint(request: Request, session_id: str = Depends(get_se
 @app.post("/agent-chat")
 async def agent_chat_endpoint(request: Request, session_id: str = Depends(get_session_id)):
     try:
+        # Check if agent is available
+        if not AGENT_AVAILABLE:
+            return JSONResponse({
+                "success": False,
+                "detail": "Agent functionality is not available in this deployment."
+            }, status_code=501)
+            
         # Update session last accessed time
         sessions[session_id]['last_accessed'] = time.time()
         

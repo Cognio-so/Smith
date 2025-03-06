@@ -1,26 +1,22 @@
-# FastAPI and web server
+# Core requirements only - no extras
 fastapi
 uvicorn
 python-dotenv
 starlette
 pydantic
 
-# LangChain and related packages
-langchain>=0.2.14
-langchain-openai>=0.1.22
-langchain-anthropic>=0.1.23
-langchain-fireworks>=0.1.7
-langchain-community>=0.2.17
-langchain-core
-langgraph>=0.2.6
-
-# External API clients
-google-generativeai
+# Essential LLM libraries
 openai
+google-generativeai
 anthropic
 fireworks-ai
 groq
-tavily-python>=0.4.0
 
-# Utilities
-tenacity
+# Minimal LangChain components
+langchain-core
+langchain-anthropic
+langchain-openai
+langchain-fireworks
+
+# Remove development dependencies and use minimal versions
+# Use direct dependencies only when possible
