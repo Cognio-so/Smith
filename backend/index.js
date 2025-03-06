@@ -6,6 +6,8 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const connectDB = require("./lib/db");
+const passport = require('./lib/passport');
+const session = require('express-session');
 const authRoutes = require("./routes/authRoutes");
 const emailRoutes = require('./routes/emailRoutes');
 const aiRoutes = require('./routes/aiRoutes');
@@ -42,6 +44,21 @@ app.use((req, res, next) => {
     });
     next();
 });
+
+// Add session support for Passport
+app.use(session({
+  secret: process.env.SESSION_SECRET || process.env.JWT_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV !== 'development',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
 
 // Health check endpoint
 app.get('/health', (req, res) => {

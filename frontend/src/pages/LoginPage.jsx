@@ -37,12 +37,8 @@ export default function LoginForm() {
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    try {
-      await signInWithGoogle()
-    } catch (err) {
-      setError(err.message)
-    }
+  const handleGoogleSignIn = () => {
+    signInWithGoogle(); // This will redirect to Google
   }
 
   return (

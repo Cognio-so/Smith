@@ -12,9 +12,17 @@ const userSchema = new mongoose.Schema({
     },
     password:{
         type: String,
-        required: true,
+        required: function() {
+            return !this.googleId; // Password not required if using Google Auth
+        },
     },
-
+    googleId: {
+        type: String,
+        sparse: true, // Allows null values with unique index
+    },
+    profilePicture: {
+        type: String,
+    },
 }, {timestamps: true});  
 
 const User = mongoose.model("User", userSchema);

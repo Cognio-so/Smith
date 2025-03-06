@@ -49,6 +49,18 @@ export const AuthProvider = ({ children }) => {
     }
 
     verifyUser()
+    
+    // Check for Google auth redirect
+    const checkGoogleAuthRedirect = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get('error');
+      
+      if (error === 'auth_failed') {
+        console.error('Google authentication failed');
+      }
+    }
+    
+    checkGoogleAuthRedirect();
   }, [])
 
   const checkAuthStatus = async () => {
@@ -105,6 +117,11 @@ export const AuthProvider = ({ children }) => {
       console.error("Logout failed:", error)
     }
   }
+  
+  // Google Sign-In Method (this is correct)
+  const signInWithGoogle = () => {
+    window.location.href = `${API_URL}/auth/google`;
+  }
 
   return (
     <AuthContext.Provider
@@ -115,6 +132,7 @@ export const AuthProvider = ({ children }) => {
         signup,
         logout,
         checkAuthStatus,
+        signInWithGoogle,
       }}
     >
       {children}

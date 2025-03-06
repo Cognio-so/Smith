@@ -1,6 +1,7 @@
 const User = require("../model/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const passport = require('../lib/passport');
 
 const Signup = async (req, res) => {
 
@@ -126,4 +127,18 @@ const generateToken = (userId, res) => {
     });
 };
 
-module.exports = {Signup, Login, Logout, checkAuth, getProfile};
+// Google auth callback handler
+const googleCallback = (req, res) => {
+  try {
+    // Generate token for the authenticated user
+    generateToken(req.user._id, res);
+    
+    // Redirect to frontend dashboard
+    res.redirect(`${process.env.FRONTEND_URL || 'https://smith-frontend.vercel.app'}/dashboard`);
+  } catch (error) {
+    console.error('Google auth callback error:', error);
+    res.redirect(`${process.env.FRONTEND_URL || 'https://smith-frontend.vercel.app'}/login?error=auth_failed`);
+  }
+};
+
+module.exports = {Signup, Login, Logout, checkAuth, getProfile, googleCallback};
