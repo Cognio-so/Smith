@@ -27,11 +27,11 @@ function MessageInput({ onSendMessage, isLoading }) {
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
  // Replace the models array with the correct Llama model ID
-const [models, setModels] = useState([
+ const [models, setModels] = useState([
   { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
   { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
   { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
-  { id: "accounts/fireworks/models/llama-v3p3-70b-instruct", name: "Llama 3.3 70B", cost: "Free/Cheap" }, // Updated ID
+  { id: "llama3-70b-8192", name: "Llama 3 70B (Groq)", cost: "Free" },
 ]);
 
 // Update the default selected model if needed
