@@ -30,6 +30,7 @@ function MessageInput({ onSendMessage, isLoading }) {
     { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
     { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
     { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
+    { id: "llama-v3-7b", name: "Llama 3.1 8B", cost: "Free/Cheap" },
   ]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
