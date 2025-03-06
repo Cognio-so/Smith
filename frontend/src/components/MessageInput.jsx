@@ -31,7 +31,7 @@ const [models, setModels] = useState([
   { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
   { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
   { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
-  { id: "accounts/fireworks/models/llama-v3p1-8b-instruct", name: "Llama 3.1 8B", cost: "Free/Cheap" }, // Updated ID
+  { id: "accounts/fireworks/models/llama-v3p3-70b-instruct", name: "Llama 3.3 70B", cost: "Free/Cheap" }, // Updated ID
 ]);
 
 // Update the default selected model if needed
