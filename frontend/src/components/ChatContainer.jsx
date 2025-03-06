@@ -86,6 +86,41 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     loadChat();
   }, [activeChat?.id]);
 
+  const generateChatTitle = async (messages) => {
+    if (!messages || messages.length === 0) return 'New Chat';
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('https://smith-backend-psi.vercel.app/api/ai/generate-title', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ messages })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate title');
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.title) {
+        return data.title;
+      } else {
+        // Fallback to simple title generation
+        const firstMessage = messages[0].content.trim();
+        return firstMessage.split(/\s+/).slice(0, 3).join(' ');
+      }
+    } catch (error) {
+      console.error('Error generating title:', error);
+      // Fallback to simple title generation
+      const firstMessage = messages[0].content.trim();
+      return firstMessage.split(/\s+/).slice(0, 3).join(' ');
+    }
+  };
+
   const saveMessages = async (messagesToSave) => {
     if (!chatIdRef.current || saveInProgress.current) return;
     
@@ -96,6 +131,13 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         chatId: chatIdRef.current,
         messageCount: messagesToSave.length
       });
+
+      // Generate a proper title for new chats
+      let chatTitle = activeChat.title;
+      if (chatIdRef.current.startsWith('temp_') && messagesToSave.length > 0) {
+        // Only generate title for new chats
+        chatTitle = await generateChatTitle(messagesToSave);
+      }
 
       const token = localStorage.getItem('token');
       const isTemporaryChat = chatIdRef.current.startsWith('temp_');
@@ -115,7 +157,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         credentials: 'include',
         body: JSON.stringify({
           chatId: chatIdRef.current,
-          title: activeChat.title || messagesToSave[0]?.content?.slice(0, 30) || 'New Chat',
+          title: chatTitle || 'New Chat',
           messages: messagesToSave
         })
       });
@@ -196,12 +238,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const handlePromptClick = (promptText) => {
     addMessage(promptText, "user");
     setIsFirstMessage(false);
-  };
-
-  const generateChatTitle = (text) => {
-    const cleanText = text.trim().replace(/[^\w\s]/gi, ' ');
-    const words = cleanText.split(/\s+/);
-    return words.slice(0, 3).join(' ');
   };
 
   const stopResponse = () => {
