@@ -87,38 +87,67 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   }, [activeChat?.id]);
 
   const generateChatTitle = async (messages) => {
-    if (!messages || messages.length === 0) return 'New Chat';
+    if (!messages?.length) return 'New Chat';
     
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No authentication token found');
+        return 'New Chat';
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
       const response = await fetch('https://smith-backend-psi.vercel.app/api/ai/generate-title', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ messages })
+        credentials: 'include',
+        signal: controller.signal,
+        body: JSON.stringify({ 
+          messages: messages.slice(0, 3).map(msg => ({
+            role: msg.role,
+            content: String(msg.content).slice(0, 500)
+          }))
+        })
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to generate title');
-      }
+
+      clearTimeout(timeoutId);
       
       const data = await response.json();
-      
-      if (data.success && data.title) {
-        return data.title;
-      } else {
-        // Fallback to simple title generation
-        const firstMessage = messages[0].content.trim();
-        return firstMessage.split(/\s+/).slice(0, 3).join(' ');
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to generate title');
       }
+
+      if (data.success && data.title?.trim()) {
+        return data.title.trim();
+      }
+
+      // Fallback title generation
+      return createFallbackTitle(messages[0]);
+
     } catch (error) {
-      console.error('Error generating title:', error);
-      // Fallback to simple title generation
-      const firstMessage = messages[0].content.trim();
-      return firstMessage.split(/\s+/).slice(0, 3).join(' ');
+      if (error.name === 'AbortError') {
+        console.warn('Title generation timed out');
+      } else {
+        console.error('Error generating title:', error);
+      }
+      return createFallbackTitle(messages[0]);
     }
+  };
+
+  // Helper function for fallback titles
+  const createFallbackTitle = (message) => {
+    if (!message?.content) return 'New Chat';
+    return String(message.content)
+      .split(/\s+/)
+      .slice(0, 3)
+      .join(' ')
+      .slice(0, 50) || 'New Chat';
   };
 
   const saveMessages = async (messagesToSave) => {
