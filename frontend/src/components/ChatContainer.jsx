@@ -11,6 +11,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { FaRegCopy } from "react-icons/fa";
 import { LuCopyCheck } from "react-icons/lu";
+import React from "react";
 
 function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onUpdateMessages }) {
   const { user } = useAuth();
