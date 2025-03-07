@@ -56,35 +56,28 @@ function MessageInput({ onSendMessage, isLoading }) {
   const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000' || 'https://python-backend-algohype.replit.app';
 
   const cancelCurrentRequest = () => {
-    console.log('🛑 Attempting to cancel current request');
     if (abortControllerRef.current) {
-      console.log('🛑 Aborting active request');
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
     setIsProcessing(false);
-    console.log('✅ Request cancelled');
   };
 
   const handleUserSpeechStart = () => {
-    console.log('🎤 Speech Start Detected');
     setIsUserSpeaking(true);
     
     if (abortControllerRef.current) {
-      console.log('🛑 Cancelling AI response due to user speech');
       cancelCurrentRequest();
       stopSpeaking();
     }
   };
 
   const handleUserSpeechEnd = () => {
-    console.log('🎤 Speech End Detected');
     if (speechTimeoutRef.current) {
       clearTimeout(speechTimeoutRef.current);
     }
     
     speechTimeoutRef.current = setTimeout(() => {
-      console.log('🎤 Confirming speech end after timeout');
       setIsUserSpeaking(false);
     }, 500);
   };
@@ -103,33 +96,25 @@ function MessageInput({ onSendMessage, isLoading }) {
       
       const handleTranscript = async (data) => {
         try {
-          console.log('📝 Received transcript data:', data);
 
           if (data.speech_started) {
-            console.log('🎤 Speech start event received');
             handleUserSpeechStart();
             return;
           }
           if (data.speech_ended) {
-            console.log('🎤 Speech end event received');
             handleUserSpeechEnd();
             return;
           }
 
           if (!data?.content) {
-            console.warn('⚠️ Invalid transcript data received');
             return;
           }
 
           if (!data.isFinal && (!data.confidence || data.confidence < 0.85)) {
-            console.log('⏳ Skipping low confidence interim result');
             return;
           }
 
-          console.log(`📝 Processing ${data.isFinal ? 'final' : 'interim'} transcript:`, data.content);
-          
           if (data.isFinal) {
-            console.log('🎯 Processing final transcript');
             cancelCurrentRequest();
             
             setOverlayMessages(prev => [...prev, { type: 'user', content: data.content }]);
@@ -140,7 +125,6 @@ function MessageInput({ onSendMessage, isLoading }) {
               currentRequestRef.current = Date.now();
               const currentRequest = currentRequestRef.current;
 
-              console.log('🚀 Sending request to API');
               const response = await fetch(`${PYTHON_API_URL}/voice-chat`, {
                 method: 'POST',
                 headers: {
@@ -161,7 +145,6 @@ function MessageInput({ onSendMessage, isLoading }) {
               }
 
               const responseData = await response.json();
-              console.log('✅ Received API response:', responseData);
 
               if (currentRequestRef.current === currentRequest) {
                 setOverlayMessages(prev => [...prev, { type: 'assistant', content: responseData.response }]);
@@ -181,7 +164,6 @@ function MessageInput({ onSendMessage, isLoading }) {
             } catch (error) {
               console.error('❌ API request error:', error);
               if (error.name === 'AbortError') {
-                console.log('🛑 Request was cancelled');
               } else {
                 onSendMessage(`Error: ${error.message}`, "system");
               }
@@ -416,22 +398,22 @@ function MessageInput({ onSendMessage, isLoading }) {
       cost: "$0.005/1K",
     },
     {
-      name: "gemini-flash-2.0",
-      label: "Gemini Flash 2.0",
+      name: "gemini-1.5-flash",
+      label: "Gemini 1.5 Flash",
       description: "Google's lightweight model, balanced for performance and cost.",
       icon: <TbBrandGoogleFilled size={18} />,
       cost: "$0.0005/1K",
     },
     {
-      name: "claude-3.5-haiku",
-      label: "Claude 3.5 Haiku",
+      name: "claude-3-haiku-20240307",
+      label: "Claude 3 Haiku",
       description: "Anthropic's fastest and most cost-effective model.",
       icon: <SiClarifai size={18} />,
       cost: "$0.0003/1K",
     },
     {
-      name: "llama-3.3",
-      label: "Llama 3.3",
+      name: "llama-3.3-70b-versatile",
+      label: "Llama 3.3 70B",
       description: "Meta's open-source model, great for research and customization.",
       icon: <TbBrain size={18} />,
       cost: "$0.0002/1K",

@@ -24,14 +24,13 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
 
   const saveCurrentChat = async () => {
     if (!activeChat?.id) {
-        console.log('No active chat to save');
         return;
     }
 
     try {
         const token = localStorage.getItem('token');
         
-        console.log('Active Chat:', activeChat);
+          
         console.log('Attempting to save chat:', {
             chatId: activeChat.id,
             title: activeChat.title,
@@ -43,12 +42,10 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
             const savedMessages = localStorage.getItem(`chat_${activeChat.id}`);
             if (savedMessages) {
                 messages = JSON.parse(savedMessages);
-                console.log('Retrieved messages from localStorage:', messages.length);
             }
         }
 
         if (!messages?.length) {
-            console.log('No messages to save');
             return;
         }
 
@@ -76,7 +73,6 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
             throw new Error(data.error || 'Failed to save chat');
         }
 
-        console.log('Chat saved successfully:', data);
     } catch (error) {
         console.error('Error saving chat:', error);
     }
@@ -114,7 +110,6 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
 
   const refreshChatHistory = async () => {
     try {
-      console.log('Fetching chat history');
       const token = localStorage.getItem('token');
       const response = await fetch('https://smith-backend-psi.vercel.app/api/chats/history/all', {
         headers: {
@@ -126,7 +121,6 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.categories) {
-          console.log('Chat history received:', data.categories);
           setCategorizedChats(data.categories);
         }
       }
@@ -140,7 +134,6 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
   }));
 
   useEffect(() => {
-    console.log('Initial chat history load');
     refreshChatHistory();
   }, []);
 

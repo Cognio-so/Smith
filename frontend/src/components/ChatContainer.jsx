@@ -65,7 +65,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           }));
 
           setMessages(formattedMessages);
-          setIsFirstMessage(formattedMessages.length === `0`);
+          setIsFirstMessage(formattedMessages.length === 0);
         }
       } catch (error) {
         console.error('Error loading chat:', error);
@@ -102,9 +102,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('Failed to generate title:', response.status, errorData.message);
-        if (response.status === 401) {
-          throw new Error('Authentication failed: Please log in again');
-        }
         const firstMessage = messages[0].content.trim();
         return firstMessage.split(/\s+/).slice(0, 5).join(' ');
       }

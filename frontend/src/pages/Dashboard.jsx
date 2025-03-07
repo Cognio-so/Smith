@@ -17,14 +17,12 @@ const Dashboard = () => {
   }, []);
 
   const refreshChatHistory = useCallback(() => {
-    console.log('Refreshing chat history');
     if (sidebarRef.current?.refreshChatHistory) {
       sidebarRef.current.refreshChatHistory();
     }
   }, []);
 
   const createNewChat = useCallback(() => {
-    console.log('Creating new chat');
     const newChat = {
       id: `temp_${Date.now()}`,
       title: 'New Chat',
@@ -39,7 +37,6 @@ const Dashboard = () => {
     if (updateInProgress.current) return;
     updateInProgress.current = true;
 
-    console.log('Updating messages:', { messageCount: messages.length });
     
     // Prevent unnecessary updates
     if (JSON.stringify(currentMessages) !== JSON.stringify(messages)) {
@@ -57,7 +54,6 @@ const Dashboard = () => {
   }, [currentMessages]);
 
   const handleUpdateChatTitle = useCallback((newTitle) => {
-    console.log('Updating chat title:', newTitle);
     setActiveChat(prev => {
       if (prev && prev.title !== newTitle) {
         return { ...prev, title: newTitle };
