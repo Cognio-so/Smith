@@ -80,18 +80,19 @@ const Login = async(req,res)=>{
 
 const Logout = async(req,res)=>{
     try {
-        res.cookie('jwt', '', {
+        const cookieOptions = {
             httpOnly: true,
-            secure: true,
-            sameSite: 'none',
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             path: '/',
             maxAge: 0
-        });
+        };
+        
+        res.cookie('jwt', '', cookieOptions);
         res.status(200).json({message: "Logged out successfully"});
     } catch (error) {
-        console.log("Error in logout controller", error.message);
+        console.error("Error in logout controller:", error);
         res.status(500).json({ message: "Internal Server Error" });
-
     }
 };
 
@@ -118,26 +119,39 @@ const generateToken = (userId, res) => {
         expiresIn: '30d'
     });
 
-    res.cookie('jwt', token, {
+    // Consistent cookie settings across all auth operations
+    const cookieOptions = {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: process.env.NODE_ENV === 'production', // true in production only
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         path: '/',
         maxAge: 30 * 24 * 60 * 60 * 1000
-    });
+    };
+
+    res.cookie('jwt', token, cookieOptions);
 };
 
 // Google auth callback handler
 const googleCallback = (req, res) => {
   try {
+    if (!req.user) {
+      console.error('Google callback: No user data received');
+      throw new Error('Authentication failed - No user data');
+    }
+
     // Generate token for the authenticated user
     generateToken(req.user._id, res);
     
-    // Redirect to frontend dashboard
-    res.redirect(`${process.env.FRONTEND_URL || 'https://smith-frontend.vercel.app'}/dashboard`);
+    // Log successful authentication
+    console.log(`Successful Google authentication for user: ${req.user.email}`);
+    
+    // Redirect with proper URL construction
+    const dashboardUrl = new URL('/dashboard', process.env.FRONTEND_URL).toString();
+    res.redirect(dashboardUrl);
   } catch (error) {
     console.error('Google auth callback error:', error);
-    res.redirect(`${process.env.FRONTEND_URL || 'https://smith-frontend.vercel.app'}/login?error=auth_failed`);
+    const loginUrl = new URL('/login', process.env.FRONTEND_URL).toString();
+    res.redirect(`${loginUrl}?error=auth_failed&message=${encodeURIComponent(error.message)}`);
   }
 };
 

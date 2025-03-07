@@ -20,41 +20,26 @@ app.use(cookieParser());
 
 // Updated CORS configuration for Vercel deployment
 app.use(cors({
-    origin: ['https://smith-frontend.vercel.app', 'http://localhost:5173', 'http://localhost:5174'],
+    origin: process.env.FRONTEND_URL || 'https://smith-frontend.vercel.app',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept'],
-    exposedHeaders: ['set-cookie'],
-    preflightContinue: false,
-    optionsSuccessStatus: 204
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
 }));
 
 // Enable trust proxy for Vercel
 app.set('trust proxy', 1);
 
-// Cookie configuration middleware
-app.use((req, res, next) => {
-    res.cookie('jwt', req.cookies?.jwt, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        domain: 'vercel.app',
-        path: '/',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    });
-    next();
-});
-
 // Add session support for Passport
 app.use(session({
-  secret: process.env.SESSION_SECRET || process.env.JWT_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV !== 'development',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+    secret: process.env.SESSION_SECRET || process.env.JWT_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000
+    }
 }));
 
 // Initialize Passport

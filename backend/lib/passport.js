@@ -21,28 +21,29 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: `${process.env.BACKEND_URL || 'https://smith-backend-psi.vercel.app'}/auth/google/callback`,
-      scope: ['profile', 'email']
+      callbackURL: `${process.env.BACKEND_URL}/auth/google/callback`,
+      proxy: process.env.NODE_ENV === 'production' // Only use proxy in production
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        // Check if user already exists
-        let user = await User.findOne({ googleId: profile.id });
-        
-        if (user) {
-          return done(null, user);
+        if (!profile.emails || !profile.emails.length) {
+          return done(new Error('No email provided from Google'));
         }
-        
-        // Check if user exists with the same email
-        user = await User.findOne({ email: profile.emails[0].value });
+
+        let user = await User.findOne({ 
+          $or: [
+            { googleId: profile.id },
+            { email: profile.emails[0].value }
+          ]
+        });
         
         if (user) {
-          // Update existing user with Google ID
-          user.googleId = profile.id;
-          if (!user.profilePicture && profile.photos && profile.photos.length > 0) {
-            user.profilePicture = profile.photos[0].value;
+          // Update existing user's Google ID if not present
+          if (!user.googleId) {
+            user.googleId = profile.id;
+            user.profilePicture = profile.photos?.[0]?.value || user.profilePicture;
+            await user.save();
           }
-          await user.save();
           return done(null, user);
         }
         
@@ -51,12 +52,13 @@ passport.use(
           name: profile.displayName,
           email: profile.emails[0].value,
           googleId: profile.id,
-          profilePicture: profile.photos && profile.photos.length > 0 ? profile.photos[0].value : null
+          profilePicture: profile.photos?.[0]?.value || null
         });
         
         await newUser.save();
         done(null, newUser);
       } catch (error) {
+        console.error('Google Strategy Error:', error);
         done(error);
       }
     }
