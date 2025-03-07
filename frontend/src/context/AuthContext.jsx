@@ -24,8 +24,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await fetch(`${API_URL}${endpoint}`, defaultOptions)
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Network error' }))
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
       return response
     } catch (error) {
@@ -121,16 +120,7 @@ export const AuthProvider = ({ children }) => {
   
   // Google Sign-In Method (this is correct)
   const signInWithGoogle = () => {
-    try {
-        // Store the current URL to redirect back after login
-        sessionStorage.setItem('redirectUrl', window.location.pathname);
-        
-        const googleAuthUrl = new URL('/auth/google', API_URL).toString();
-        window.location.href = googleAuthUrl;
-    } catch (error) {
-        console.error('Google sign-in error:', error);
-        // Handle the error appropriately in your UI
-    }
+    window.location.href = `${API_URL}/auth/google`;
   }
 
   return (
