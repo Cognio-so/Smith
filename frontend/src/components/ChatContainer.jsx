@@ -1,39 +1,38 @@
-import { useState, useEffect, useRef } from "react";
-import MessageInput from "./MessageInput";
-import { motion, AnimatePresence } from "framer-motion";
-import { FiUser } from "react-icons/fi";
-import { BsChatLeftText } from "react-icons/bs";
-import { HiSparkles } from "react-icons/hi";
-import { speakWithDeepgram, stopSpeaking } from '../utils/textToSpeech';
-import { sendEmailWithPDF } from '../utils/emailService';
-import { useAuth } from '../context/AuthContext';
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { FaRegCopy } from "react-icons/fa";
-import { LuCopyCheck } from "react-icons/lu";
-import React from "react";
+import { useState, useEffect, useRef } from "react"
+import MessageInput from "./MessageInput"
+import { motion, AnimatePresence } from "framer-motion"
+import { FiUser } from "react-icons/fi"
+import { BsChatLeftText } from "react-icons/bs"
+import { HiSparkles } from "react-icons/hi"
+import { speakWithDeepgram, stopSpeaking } from '../utils/textToSpeech'
+import { sendEmailWithPDF } from '../utils/emailService'
+import { useAuth } from '../context/AuthContext'
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import { FaRegCopy } from "react-icons/fa"
+import { LuCopyCheck } from "react-icons/lu"
 
 function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onUpdateMessages }) {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isFirstMessage, setIsFirstMessage] = useState(true);
-  const [streamingText, setStreamingText] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const messagesEndRef = useRef(null);
-  const abortControllerRef = useRef(null);
-  const [isLoadingChat, setIsLoadingChat] = useState(false);
-  const saveInProgress = useRef(false);
-  const pendingMessages = useRef([]);
-  const chatIdRef = useRef(null);
-  const [copyStatus, setCopyStatus] = useState({});
+  const { user } = useAuth()
+  const [messages, setMessages] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [isFirstMessage, setIsFirstMessage] = useState(true)
+  const [streamingText, setStreamingText] = useState("")
+  const [isStreaming, setIsStreaming] = useState(false)
+  const messagesEndRef = useRef(null)
+  const abortControllerRef = useRef(null)
+  const [isLoadingChat, setIsLoadingChat] = useState(false)
+  const saveInProgress = useRef(false)
+  const pendingMessages = useRef([])
+  const chatIdRef = useRef(null)
+  const [copyStatus, setCopyStatus] = useState({})
 
   useEffect(() => {
     if (!activeChat?.id) return;
-
+    
     chatIdRef.current = activeChat.id;
     setIsLoadingChat(true);
-
+    
     const loadChat = async () => {
       if (activeChat.id.startsWith('temp_')) {
         setMessages([]);
@@ -41,13 +40,15 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         setIsLoadingChat(false);
         return;
       }
-
+      
       try {
+        const token = localStorage.getItem('token');
         const response = await fetch(`https://smith-backend-psi.vercel.app/api/chats/${activeChat.id}`, {
           headers: {
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          credentials: 'include' // Send cookies for JWT auth
+          credentials: 'include'
         });
 
         if (!response.ok) {
@@ -55,7 +56,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         }
 
         const data = await response.json();
-
+        
         if (data.chat?.messages) {
           const formattedMessages = data.chat.messages.map((msg, index) => ({
             messageId: msg.messageId || `msg-${Date.now()}-${index}`,
@@ -63,7 +64,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
             role: msg.role,
             timestamp: msg.timestamp || new Date().toISOString()
           }));
-
+          
           setMessages(formattedMessages);
           setIsFirstMessage(formattedMessages.length === 0);
         }
@@ -87,44 +88,42 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
   const generateChatTitle = async (messages) => {
     if (!messages || messages.length === 0) return 'New Chat';
-
+    
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('https://smith-backend-psi.vercel.app/api/ai/generate-title', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Authorization': `Bearer ${token}`
         },
-        credentials: 'include', // Send cookies for JWT auth
         body: JSON.stringify({ messages })
       });
-
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to generate title:', response.status, errorData.message);
-        const firstMessage = messages[0].content.trim();
-        return firstMessage.split(/\s+/).slice(0, 5).join(' ');
+        throw new Error('Failed to generate title');
       }
-
+      
       const data = await response.json();
-
+      
       if (data.success && data.title) {
         return data.title;
       } else {
-        console.warn('No title in response:', data);
+        // Fallback to simple title generation
         const firstMessage = messages[0].content.trim();
-        return firstMessage.split(/\s+/).slice(0, 5).join(' ');
+        return firstMessage.split(/\s+/).slice(0, 3).join(' ');
       }
     } catch (error) {
       console.error('Error generating title:', error);
+      // Fallback to simple title generation
       const firstMessage = messages[0].content.trim();
-      return firstMessage.split(/\s+/).slice(0, 5).join(' ');
+      return firstMessage.split(/\s+/).slice(0, 3).join(' ');
     }
   };
 
   const saveMessages = async (messagesToSave) => {
     if (!chatIdRef.current || saveInProgress.current) return;
-
+    
     saveInProgress.current = true;
 
     try {
@@ -133,25 +132,29 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         messageCount: messagesToSave.length
       });
 
+      // Generate a proper title for new chats
       let chatTitle = activeChat.title;
-      const isTemporaryChat = chatIdRef.current.startsWith('temp_');
-
-      if (isTemporaryChat && messagesToSave.length > 0) {
+      if (chatIdRef.current.startsWith('temp_') && messagesToSave.length > 0) {
+        // Only generate title for new chats
         chatTitle = await generateChatTitle(messagesToSave);
       }
 
-      const endpoint = isTemporaryChat
+      const token = localStorage.getItem('token');
+      const isTemporaryChat = chatIdRef.current.startsWith('temp_');
+      
+      const endpoint = isTemporaryChat 
         ? 'https://smith-backend-psi.vercel.app/api/chats/save'
         : `https://smith-backend-psi.vercel.app/api/chats/${chatIdRef.current}/update`;
-
+      
       const method = isTemporaryChat ? 'POST' : 'PUT';
 
       const response = await fetch(endpoint, {
         method,
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        credentials: 'include', // Send cookies for JWT auth
+        credentials: 'include',
         body: JSON.stringify({
           chatId: chatIdRef.current,
           title: chatTitle || 'New Chat',
@@ -160,7 +163,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       });
 
       const data = await response.json();
-
+      
       if (!response.ok) {
         throw new Error(data.error || 'Failed to save chat');
       }
@@ -171,15 +174,16 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         }
 
         onUpdateMessages(messagesToSave);
-
+        
         if (data.chat.title !== activeChat.title) {
           onUpdateChatTitle(data.chat.title);
         }
-
+        
         if (onChatSaved) {
           onChatSaved();
         }
       }
+
     } catch (error) {
       console.error('Error saving chat:', error);
     } finally {
@@ -188,12 +192,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingText]);
+    scrollToBottom()
+  }, [messages, streamingText])
 
   const predefinedPrompts = [
     {
@@ -214,12 +218,20 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   ];
 
   const messageVariants = {
-    hidden: { opacity: 0, y: 20, scale: 0.9 },
+    hidden: { 
+      opacity: 0, 
+      y: 20,
+      scale: 0.9,
+    },
     visible: { 
       opacity: 1, 
-      y: 0, 
-      scale: 1, 
-      transition: { type: "spring", stiffness: 200, damping: 20 }
+      y: 0,
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 200,
+        damping: 20
+      }
     }
   };
 
@@ -243,7 +255,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       }
 
       const lastMessages = recentMessages.slice(-10);
-
+      
       const result = await sendEmailWithPDF(
         user.email,
         lastMessages,
@@ -258,8 +270,10 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         role: "assistant",
         timestamp: new Date().toISOString()
       }]);
+
     } catch (error) {
       console.error('Email send error:', error);
+      
       setMessages(prev => [...prev, {
         messageId: `err-${Date.now()}`,
         content: `❌ Sorry, I couldn't send the email: ${error.message}. Please try again or contact support if the issue persists.`,
@@ -276,12 +290,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   }, [messages, onUpdateMessages]);
 
   const addMessage = async (content, role, isStreaming = false) => {
-    const safeContent = typeof content === 'string'
-      ? content
-      : (content && typeof content === 'object'
-        ? JSON.stringify(content)
+    const safeContent = typeof content === 'string' 
+      ? content 
+      : (content && typeof content === 'object' 
+        ? JSON.stringify(content) 
         : String(content));
-
+    
     if (!chatIdRef.current) return;
 
     setMessages(prevMessages => {
@@ -302,10 +316,11 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         updatedMessages = [...prevMessages, newMessage];
       }
 
+      // Save messages for assistant role, whether streaming or not
       if (role === 'assistant') {
         saveMessages(updatedMessages);
       }
-
+      
       return updatedMessages;
     });
 
@@ -341,7 +356,9 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         initial="hidden"
         animate="visible"
         variants={messageVariants}
-        className={`flex items-start gap-3 mb-8 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+        className={`flex items-start gap-3 mb-8 ${
+          message.role === "user" ? "justify-end" : "justify-start"
+        }`}
       >
         {message.role !== "user" && (
           <motion.div
@@ -360,7 +377,9 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           className={`max-w-[85%] sm:max-w-[75%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-lg ${
             message.role === "user"
               ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] text-white/90 border border-white/10"
-              : `bg-[#1a1a1a] text-slate-200 border border-white/10 ${message.isVoice ? 'voice-message' : ''}`
+              : `bg-[#1a1a1a] text-slate-200 border border-white/10 ${
+                  message.isVoice ? 'voice-message' : ''
+                }`
           }`}
         >
           <motion.div
@@ -372,34 +391,30 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
             {message.isVoice && (
               <div className="text-xs text-[#cc2b5e] mb-1">🎤 Voice Message</div>
             )}
+            
             <div className="prose prose-invert max-w-none overflow-x-auto">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  li: ({ node, ...props }) => <li {...props} className="my-1">{props.children}</li>,
+                  li: ({ node, ...props }) => (
+                    <li {...props} className="my-1">
+                      {props.children}
+                    </li>
+                  ),
                   h1: ({ node, ...props }) => <h1 {...props} className="text-2xl font-bold my-4" />,
                   h2: ({ node, ...props }) => <h2 {...props} className="text-xl font-bold my-3" />,
                   h3: ({ node, ...props }) => <h3 {...props} className="text-lg font-bold my-2" />,
-                  p: ({ node, children, ...props }) => {
-                    const hasCodeBlock = React.Children.toArray(children).some(
-                      child => child?.type === 'pre' || (child?.props?.node?.tagName === 'pre')
-                    );
-                    return hasCodeBlock ? <>{children}</> : <p {...props} className="my-2">{children}</p>;
-                  },
+                  p: ({ node, ...props }) => <p {...props} className="my-2" />,
                   ul: ({ node, ...props }) => <ul {...props} className="list-disc pl-5 my-3" />,
                   ol: ({ node, ...props }) => <ol {...props} className="list-decimal pl-5 my-3" />,
                   strong: ({ node, ...props }) => <strong {...props} className="font-bold" />,
-                  a: ({ node, ...props }) => (
-                    <a {...props} className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer" />
-                  ),
-                  blockquote: ({ node, ...props }) => (
-                    <blockquote {...props} className="border-l-4 border-gray-400 pl-4 italic my-3" />
-                  ),
+                  a: ({ node, ...props }) => <a {...props} className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer" />,
+                  blockquote: ({ node, ...props }) => <blockquote {...props} className="border-l-4 border-gray-400 pl-4 italic my-3" />,
                   code: ({ node, inline, className, children, ...props }) => {
                     const match = /language-(\w+)/.exec(className || '');
                     const language = match ? match[1] : '';
                     const id = `code-${Math.random().toString(36).substr(2, 9)}`;
-
+                    
                     return inline ? (
                       <code
                         {...props}
@@ -414,7 +429,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                             {language}
                           </div>
                         )}
-                        <div
+                        <div 
                           className="absolute right-2 top-2 cursor-pointer hover:bg-[#2d333b] p-1 rounded"
                           onClick={() => copyToClipboard(String(children).replace(/\n$/, ''), id)}
                         >
@@ -429,24 +444,34 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                           id={id}
                           className="bg-[#1e1e1e] text-white/90 text-sm font-mono p-4 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-700"
                         >
-                          <code className={language ? `language-${language}` : ''}>{children}</code>
+                          <code className={language ? `language-${language}` : ''}>
+                            {children}
+                          </code>
                         </pre>
                       </div>
                     );
                   },
                   table: ({ node, children, ...props }) => (
                     <div className="overflow-x-auto my-4 border border-white/10 rounded-md">
-                      <table {...props} className="min-w-full border-collapse">{children}</table>
+                      <table {...props} className="min-w-full border-collapse">
+                        {children}
+                      </table>
                     </div>
                   ),
                   thead: ({ node, children, ...props }) => (
-                    <thead {...props} className="bg-[#2d333b]/50 border-b border-white/10">{children}</thead>
+                    <thead {...props} className="bg-[#2d333b]/50 border-b border-white/10">
+                      {children}
+                    </thead>
                   ),
                   tbody: ({ node, children, ...props }) => (
-                    <tbody {...props} className="bg-[#1e1e1e]/30">{children}</tbody>
+                    <tbody {...props} className="bg-[#1e1e1e]/30">
+                      {children}
+                    </tbody>
                   ),
                   tr: ({ node, children, ...props }) => (
-                    <tr {...props} className="border-b border-white/10 hover:bg-[#2d333b]/30">{children}</tr>
+                    <tr {...props} className="border-b border-white/10 hover:bg-[#2d333b]/30">
+                      {children}
+                    </tr>
                   ),
                   th: ({ node, children, ...props }) => (
                     <th
@@ -496,8 +521,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         >
           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] animate-pulse" />
           <div className={`max-w-[70%] h-20 rounded-2xl animate-pulse ${
-            i % 2 === 0
-              ? 'bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a]'
+            i % 2 === 0 
+              ? 'bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a]' 
               : 'bg-[#1a1a1a]'
           }`} />
           {i % 2 === 0 && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] animate-pulse" />}
@@ -508,9 +533,9 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
   const createNewChat = () => {
     const newChat = {
-      id: `temp_${Date.now()}`,
-      title: 'New Chat',
-      messages: []
+        id: `temp_${Date.now()}`,
+        title: 'New Chat',
+        messages: []
     };
     setActiveChat(newChat);
   };
@@ -565,7 +590,10 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           <LoadingSkeleton />
         ) : (
           <>
-            {getUniqueMessages().map((message, index) => renderMessage(message, index))}
+            {getUniqueMessages().map((message, index) => (
+              renderMessage(message, index)
+            ))}
+            
             {isLoading && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -593,6 +621,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
             )}
           </>
         )}
+        
         <div ref={messagesEndRef} />
       </div>
 
@@ -607,32 +636,56 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               {predefinedPrompts.map((item) => (
                 <motion.div
                   key={item.id}
-                  className="group relative bg-white/[0.05] backdrop-blur-xl border border-white/20 rounded-xl p-4 cursor-pointer hover:bg-white/[0.08] transition-all duration-300 shadow-[0_0_20px_rgba(204,43,94,0.3)] hover:shadow-[0_0_30px_rgba(204,43,94,0.5)] before:absolute before:inset-0 before:bg-gradient-to-r before:from-[#cc2b5e]/30 before:to-[#753a88]/30 before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-100 before:rounded-xl overflow-hidden hover:border-white/40"
+                  className="group relative bg-white/[0.05] backdrop-blur-xl border border-white/20 
+                    rounded-xl p-4 cursor-pointer hover:bg-white/[0.08] transition-all duration-300 
+                    shadow-[0_0_20px_rgba(204,43,94,0.3)] hover:shadow-[0_0_30px_rgba(204,43,94,0.5)] 
+                    before:absolute before:inset-0 before:bg-gradient-to-r before:from-[#cc2b5e]/30 
+                    before:to-[#753a88]/30 before:opacity-0 before:transition-opacity before:duration-300 
+                    hover:before:opacity-100 before:rounded-xl overflow-hidden
+                    hover:border-white/40"
                   onClick={() => handlePromptClick(item.prompt)}
-                  whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}
+                  whileHover={{ 
+                    scale: 1.03,
+                    transition: { duration: 0.2 }
+                  }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 group-hover:opacity-20 transition-opacity duration-300 blur-2xl"
+                  <motion.div 
+                    className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 
+                      group-hover:opacity-20 transition-opacity duration-300 blur-2xl"
                     initial={{ opacity: 0 }}
-                    whileHover={{ opacity: 0.25, transition: { duration: 0.3 } }}
+                    whileHover={{ 
+                      opacity: 0.25,
+                      transition: { duration: 0.3 }
+                    }}
                   />
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 group-hover:opacity-30 transition-all duration-500 blur-md"
+                  <motion.div 
+                    className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 
+                      group-hover:opacity-30 transition-all duration-500 blur-md"
                     initial={{ opacity: 0, scale: 0.95 }}
-                    whileHover={{ opacity: 0.3, scale: 1.05, transition: { duration: 0.5 } }}
+                    whileHover={{ 
+                      opacity: 0.3,
+                      scale: 1.05,
+                      transition: { duration: 0.5 }
+                    }}
                   />
                   <div className="relative z-10">
-                    <h3 className="text-white/90 font-medium text-sm mb-2">{item.title}</h3>
-                    <p className="text-gray-400 text-xs line-clamp-2">{item.prompt}</p>
+                    <h3 className="text-white/90 font-medium text-sm mb-2">
+                      {item.title}
+                    </h3>
+                    <p className="text-gray-400 text-xs line-clamp-2">
+                      {item.prompt}
+                    </p>
                   </div>
-                  <div className="absolute -inset-1 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] rounded-xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 blur-xl -z-10" />
+                  <div className="absolute -inset-1 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] 
+                    rounded-xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 blur-xl -z-10"
+                  />
                 </motion.div>
               ))}
             </div>
           </div>
         )}
-        <MessageInput
+        <MessageInput 
           onSendMessage={addMessage}
           isLoading={isLoading}
           onStopResponse={stopSpeaking}
