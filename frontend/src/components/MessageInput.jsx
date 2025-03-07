@@ -31,7 +31,7 @@ function MessageInput({ onSendMessage, isLoading }) {
   { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
   { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
   { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
-  { id: "llama3-70b-8192", name: "Llama 3 70B (Groq)", cost: "Free" },
+  { id: "llama2-70b-4096", name: "Llama 2 70B (Groq)", cost: "Free" },
 ]);
 
 // Update the default selected model if needed
