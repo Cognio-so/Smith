@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const verifyUser = async () => {
       try {
-        const response = await fetchWithCredentials(`${API_URL}/auth/check-auth`)
+        const response = await fetchWithCredentials('/auth/check-auth')
         const data = await response.json()
         setUser(data)
       } catch (error) {
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetchWithCredentials(`${API_URL}/auth/check-auth`)
+      const response = await fetchWithCredentials('/auth/check-auth')
       const data = await response.json()
       setUser(data)
     } catch (error) {
@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await fetchWithCredentials(`${API_URL}/auth/login`, {
+      const response = await fetchWithCredentials('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password })
       })
@@ -94,7 +94,7 @@ export const AuthProvider = ({ children }) => {
 
   const signup = async (name, email, password) => {
     try {
-      const response = await fetchWithCredentials(`${API_URL}/auth/signup`, {
+      const response = await fetchWithCredentials('/auth/signup', {
         method: 'POST',
         body: JSON.stringify({ name, email, password })
       })
@@ -110,7 +110,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await fetchWithCredentials(`${API_URL}/auth/logout`, { method: 'POST' })
+      await fetchWithCredentials('/auth/logout', { method: 'POST' })
       setUser(null)
       navigate("/login")
     } catch (error) {
