@@ -6,67 +6,55 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const connectDB = require("./lib/db");
-const passport = require('./lib/passport');
-const session = require('express-session');
+const passport = require("./lib/passport");
 const authRoutes = require("./routes/authRoutes");
-const emailRoutes = require('./routes/emailRoutes');
-const aiRoutes = require('./routes/aiRoutes');
-const chatRoutes = require('./routes/chatRoutes');
+const emailRoutes = require("./routes/emailRoutes");
+const aiRoutes = require("./routes/aiRoutes");
+const chatRoutes = require("./routes/chatRoutes");
+
 const app = express();
 
-// Increase payload limit for voice data
-app.use(express.json({ limit: '10mb' }));
+// Validate critical environment variables
+const requiredEnvVars = ["JWT_SECRET", "GEMINI_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"];
+requiredEnvVars.forEach((varName) => {
+  if (!process.env[varName]) {
+    console.error(`Error: Environment variable ${varName} is not set`);
+    process.exit(1);
+  }
+});
+
+// Middleware
+app.use(express.json({ limit: "10mb" })); // Increase payload limit for voice data
 app.use(cookieParser());
 
-// Updated CORS configuration for Vercel deployment
-app.use(cors({
-    origin: ['https://smith-frontend.vercel.app', 'http://localhost:5173', 'http://localhost:5174'],
+// CORS configuration
+app.use(
+  cors({
+    origin: [
+      "https://smith-frontend.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:5174",
+    ],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept'],
-    exposedHeaders: ['set-cookie'],
-    preflightContinue: false,
-    optionsSuccessStatus: 204
-}));
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie", "Accept"],
+    exposedHeaders: ["set-cookie"],
+  })
+);
 
 // Enable trust proxy for Vercel
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 
-// Cookie configuration middleware
-app.use((req, res, next) => {
-    res.cookie('jwt', req.cookies?.jwt, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        domain: 'vercel.app',
-        path: '/',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    });
-    next();
-});
-
-// Add session support for Passport
-app.use(session({
-  secret: process.env.SESSION_SECRET || process.env.JWT_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV !== 'development',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
-
-// Initialize Passport
+// Initialize Passport (no session support needed)
 app.use(passport.initialize());
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok' });
+// Routes
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
 });
 
-app.get('/', (req, res) => {
-    res.send('Hello World');
+app.get("/", (req, res) => {
+  res.send("Hello World");
 });
 
 app.use("/auth", authRoutes);
@@ -74,20 +62,34 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/email", emailRoutes);
 
-const PORT = process.env.PORT || 5001;
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err.stack);
+  res.status(500).json({
+    success: false,
+    message: "Internal Server Error",
+    error: err.message,
+  });
+});
 
+// Start server
 const startServer = async () => {
-    try {
-        await connectDB();
-        app.listen(PORT, () => {
-            console.log(`✨ Server deployed successfully!`);
-           
-        });
-    } catch (error) {
-        console.error('Failed to start server:', error);
-        process.exit(1);
+  try {
+    await connectDB();
+    if (process.env.NODE_ENV !== "production") {
+      const PORT = process.env.PORT || 5001;
+      app.listen(PORT, () => {
+        console.log(`✨ Server running locally on port ${PORT}`);
+      });
+    } else {
+      console.log("✨ Server deployed to Vercel");
     }
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
 };
 
 startServer();
 
+module.exports = app; // Export for Vercel

@@ -43,13 +43,11 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       }
 
       try {
-        const token = localStorage.getItem('token');
         const response = await fetch(`https://smith-backend-psi.vercel.app/api/chats/${activeChat.id}`, {
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          credentials: 'include'
+          credentials: 'include' // Send cookies for JWT auth
         });
 
         if (!response.ok) {
@@ -67,7 +65,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           }));
 
           setMessages(formattedMessages);
-          setIsFirstMessage(formattedMessages.length === 0);
+          setIsFirstMessage(formattedMessages.length === `0`);
         }
       } catch (error) {
         console.error('Error loading chat:', error);
@@ -91,24 +89,24 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     if (!messages || messages.length === 0) return 'New Chat';
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication token not found in localStorage');
-      }
-
       const response = await fetch('https://smith-backend-psi.vercel.app/api/ai/generate-title', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Accept': 'application/json'
         },
-        credentials: 'include', // Include cookies for JWT
+        credentials: 'include', // Send cookies for JWT auth
         body: JSON.stringify({ messages })
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to generate title: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to generate title:', response.status, errorData.message);
+        if (response.status === 401) {
+          throw new Error('Authentication failed: Please log in again');
+        }
+        const firstMessage = messages[0].content.trim();
+        return firstMessage.split(/\s+/).slice(0, 5).join(' ');
       }
 
       const data = await response.json();
@@ -116,13 +114,14 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       if (data.success && data.title) {
         return data.title;
       } else {
+        console.warn('No title in response:', data);
         const firstMessage = messages[0].content.trim();
-        return firstMessage.split(/\s+/).slice(0, 3).join(' ');
+        return firstMessage.split(/\s+/).slice(0, 5).join(' ');
       }
     } catch (error) {
       console.error('Error generating title:', error);
       const firstMessage = messages[0].content.trim();
-      return firstMessage.split(/\s+/).slice(0, 3).join(' ');
+      return firstMessage.split(/\s+/).slice(0, 5).join(' ');
     }
   };
 
@@ -138,12 +137,11 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       });
 
       let chatTitle = activeChat.title;
-      if (chatIdRef.current.startsWith('temp_') && messagesToSave.length > 0) {
+      const isTemporaryChat = chatIdRef.current.startsWith('temp_');
+
+      if (isTemporaryChat && messagesToSave.length > 0) {
         chatTitle = await generateChatTitle(messagesToSave);
       }
-
-      const token = localStorage.getItem('token');
-      const isTemporaryChat = chatIdRef.current.startsWith('temp_');
 
       const endpoint = isTemporaryChat
         ? 'https://smith-backend-psi.vercel.app/api/chats/save'
@@ -154,10 +152,9 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       const response = await fetch(endpoint, {
         method,
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
-        credentials: 'include',
+        credentials: 'include', // Send cookies for JWT auth
         body: JSON.stringify({
           chatId: chatIdRef.current,
           title: chatTitle || 'New Chat',

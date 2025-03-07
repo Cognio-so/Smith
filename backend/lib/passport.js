@@ -3,19 +3,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../model/userModel');
 const jwt = require("jsonwebtoken");
 
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-  try {
-    const user = await User.findById(id);
-    done(null, user);
-  } catch (error) {
-    done(error);
-  }
-});
-
+// Google Strategy without session support
 passport.use(
   new GoogleStrategy(
     {
@@ -26,26 +14,31 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        // Check if user already exists
+        // Check if user already exists by googleId
         let user = await User.findOne({ googleId: profile.id });
-        
+
         if (user) {
-          return done(null, user);
+          const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+            expiresIn: '30d'
+          });
+          return done(null, { user, token });
         }
-        
+
         // Check if user exists with the same email
         user = await User.findOne({ email: profile.emails[0].value });
-        
+
         if (user) {
-          // Update existing user with Google ID
           user.googleId = profile.id;
           if (!user.profilePicture && profile.photos && profile.photos.length > 0) {
             user.profilePicture = profile.photos[0].value;
           }
           await user.save();
-          return done(null, user);
+          const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+            expiresIn: '30d'
+          });
+          return done(null, { user, token });
         }
-        
+
         // Create new user
         const newUser = new User({
           name: profile.displayName,
@@ -53,14 +46,18 @@ passport.use(
           googleId: profile.id,
           profilePicture: profile.photos && profile.photos.length > 0 ? profile.photos[0].value : null
         });
-        
+
         await newUser.save();
-        done(null, newUser);
+        const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, {
+          expiresIn: '30d'
+        });
+        done(null, { user: newUser, token });
       } catch (error) {
+        console.error('Error in Google Strategy:', error);
         done(error);
       }
     }
   )
 );
 
-module.exports = passport; 
+module.exports = passport;

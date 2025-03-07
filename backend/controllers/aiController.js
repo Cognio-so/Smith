@@ -1,12 +1,29 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize GoogleGenerativeAI with error handling
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || (() => {
+  console.error('GEMINI_API_KEY is not set');
+  throw new Error('Missing GEMINI_API_KEY');
+})());
 
 const generateSummary = async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated"
+      });
+    }
+
     const { messages } = req.body;
-    
-    // Format messages for Gemini
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Messages array is required and must not be empty"
+      });
+    }
+
     const formattedMessages = messages.map(msg => 
       `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
     ).join('\n');
@@ -35,11 +52,13 @@ const generateSummary = async (req, res) => {
 
 const generateTitle = async (req, res) => {
   try {
-    // Ensure user is authenticated (assuming protectRoutes sets req.user)
+    // Ensure user is authenticated via protectRoutes
     if (!req.user) {
+      console.error('User not authenticated');
       return res.status(401).json({
         success: false,
-        message: "User not authenticated"
+        message: "User not authenticated",
+        details: 'Authentication cookie missing or invalid'
       });
     }
 
@@ -47,13 +66,14 @@ const generateTitle = async (req, res) => {
 
     // Validate input
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      console.error('Invalid messages input:', messages);
       return res.status(400).json({
         success: false,
-        message: "Messages array is required and must not be empty"
+        message: "Messages array is required and must not be empty",
+        received: messages
       });
     }
 
-    // Format messages for Gemini
     const formattedMessages = messages.map(msg => 
       `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
     ).join('\n');
@@ -68,15 +88,15 @@ const generateTitle = async (req, res) => {
 
     res.json({
       success: true,
-      title: title.slice(0, 50) // Limit title length to 50 characters
+      title: title.slice(0, 50)
     });
   } catch (error) {
     console.error('Title generation error:', error);
 
-    if (error.message.includes('API key')) {
+    if (error.message.includes('API key') || error.message.includes('Missing GEMINI_API_KEY')) {
       return res.status(500).json({
         success: false,
-        message: "Server configuration error: Missing API key",
+        message: "Server configuration error: Missing or invalid API key",
         error: "Contact administrator"
       });
     }
@@ -89,4 +109,4 @@ const generateTitle = async (req, res) => {
   }
 };
 
-module.exports = { generateSummary, generateTitle }; 
+module.exports = { generateSummary, generateTitle };
