@@ -26,15 +26,15 @@ function MessageInput({ onSendMessage, isLoading }) {
   const stopRef = useRef(null);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
- // Replace the models array with the correct Llama model ID
- const [models, setModels] = useState([
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
-  { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
-  { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
-  { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", cost: "Free" },
-]);
+  // Replace the models array with the correct Llama model ID
+  const [models, setModels] = useState([
+    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
+    { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
+    { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
+    { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", cost: "Free" },
+  ]);
 
-// Update the default selected model if needed
+  // Update the default selected model if needed
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const processingTimeoutRef = useRef(null);
@@ -97,7 +97,6 @@ function MessageInput({ onSendMessage, isLoading }) {
       
       const handleTranscript = async (data) => {
         try {
-
           if (data.speech_started) {
             handleUserSpeechStart();
             return;
@@ -361,13 +360,13 @@ function MessageInput({ onSendMessage, isLoading }) {
   const getModelIcon = (modelId) => {
     switch (modelId) {
       case "gemini-1.5-flash":
-        return <TbBrandGoogleFilled className="h-4 w-4 text-[#cc2b5e]" />;
+        return <TbBrandGoogleFilled className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
       case "gpt-4o-mini":
-        return <SiOpenai className="h-4 w-4 text-[#cc2b5e]" />;
+        return <SiOpenai className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
       case "claude-3-haiku-20240307":
-        return <TbBrain className="h-4 w-4 text-[#cc2b5e]" />;
+        return <TbBrain className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
       default:
-        return <HiSparkles className="h-4 w-4 text-[#cc2b5e]" />;
+        return <HiSparkles className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
     }
   };
 
@@ -432,18 +431,18 @@ function MessageInput({ onSendMessage, isLoading }) {
 
   return (
     <>
-      <div className="px-2 sm:px-4 py-2 sm:py-4">
+      <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 w-full">
         <motion.form
           onSubmit={handleSubmit}
-          className={`group relative rounded-2xl transition-all duration-300 w-full max-w-3xl mx-auto 
+          className={`group relative rounded-lg sm:rounded-xl md:rounded-2xl transition-all duration-300 w-full max-w-full sm:max-w-2xl md:max-w-3xl mx-auto 
             ${isFocused 
-              ? 'bg-white/[0.05] shadow-[0_0_20px_rgba(204,43,94,0.3)]' 
+              ? 'bg-white/[0.05] shadow-[0_0_15px_rgba(204,43,94,0.3)] sm:shadow-[0_0_20px_rgba(204,43,94,0.3)]' 
               : 'bg-white/[0.03]'
             } backdrop-blur-xl border border-white/20`}
         >
           <motion.div 
             className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 
-              group-hover:opacity-20 transition-opacity duration-300 blur-2xl rounded-2xl"
+              group-hover:opacity-20 transition-opacity duration-300 blur-lg sm:blur-2xl rounded-lg sm:rounded-xl md:rounded-2xl"
             initial={{ opacity: 0 }}
             whileHover={{ 
               opacity: 0.25,
@@ -452,16 +451,16 @@ function MessageInput({ onSendMessage, isLoading }) {
           />
 
           <div className="relative z-10">
-            <div className="relative flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 sm:p-3">
+            <div className="relative flex flex-wrap sm:flex-nowrap items-center gap-1 sm:gap-2 p-1 sm:p-2 md:p-3">
               <motion.button
                 type="button"
                 onClick={() => setShowModelSelector(!showModelSelector)}
-                className="flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 rounded-xl hover:bg-white/10 transition-all duration-200"
+                className="flex items-center gap-1 sm:gap-2 p-1 sm:p-1.5 md:p-2 rounded-lg sm:rounded-xl hover:bg-white/10 transition-all duration-200"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
                 {getModelIcon(selectedModel)}
-                <span className="text-[10px] sm:text-xs text-[#cc2b5e]">
+                <span className="text-[9px] sm:text-[10px] md:text-xs text-[#cc2b5e]">
                   {models.find(m => m.id === selectedModel)?.name}
                 </span>
               </motion.button>
@@ -478,7 +477,7 @@ function MessageInput({ onSendMessage, isLoading }) {
                   }
                 }}
                 placeholder="Message Audio-Smith..."
-                className="w-full sm:w-auto flex-1 bg-transparent px-2 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-white/90 placeholder:text-white/40 focus:outline-none rounded-xl transition-all duration-200 focus:bg-white/5 resize-none overflow-hidden min-h-[44px] max-h-[200px]"
+                className="w-full sm:w-auto flex-1 bg-transparent px-2 sm:px-3 md:px-4 py-1 sm:py-2 md:py-3 text-xs sm:text-sm md:text-base text-white/90 placeholder:text-white/40 focus:outline-none rounded-lg sm:rounded-xl transition-all duration-200 focus:bg-white/5 resize-none overflow-hidden min-h-[36px] sm:min-h-[44px] max-h-[150px] sm:max-h-[200px]"
                 rows={1}
                 style={{ height: 'auto' }}
                 onInput={(e) => {
@@ -498,24 +497,24 @@ function MessageInput({ onSendMessage, isLoading }) {
                 <motion.button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2 rounded-xl hover:bg-white/10 transition-all duration-200"
+                  className="p-1 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/10 transition-all duration-200"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <IoMdAttach className="h-4 w-4 text-[#cc2b5e] hover:text-[#753a88] transition-colors duration-200" />
+                  <IoMdAttach className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e] hover:text-[#753a88] transition-colors duration-200" />
                 </motion.button>
 
                 <motion.button
                   type="button"
                   onClick={() => setUseAgent(!useAgent)}
-                  className={`p-2 rounded-xl transition-all duration-200 ${
+                  className={`p-1 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ${
                     useAgent ? 'bg-red-500/20 hover:bg-red-500/30' : 'hover:bg-white/10'
                   }`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   title={useAgent ? "Using Agent (with web search)" : "Switch to Agent mode"}
                 >
-                  <RiRobot2Line className={`h-4 w-4 transition-colors duration-200 ${
+                  <RiRobot2Line className={`h-3 w-3 sm:h-4 sm:w-4 transition-colors duration-200 ${
                     useAgent ? 'text-[#cc2b5e]' : 'text-[#cc2b5e] hover:text-[#753a88]'
                   }`} />
                 </motion.button>
@@ -528,14 +527,14 @@ function MessageInput({ onSendMessage, isLoading }) {
                     }
                     setUseCognioAgent(!useCognioAgent);
                   }}
-                  className={`p-2 rounded-xl transition-all duration-200 ${
+                  className={`p-1 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ${
                     useCognioAgent ? 'bg-purple-500/20 hover:bg-purple-500/30' : 'hover:bg-white/10'
                   }`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   title={useCognioAgent ? "Using Cognio Agent" : "Switch to Cognio Agent"}
                 >
-                  <HiSparkles className={`h-4 w-4 transition-colors duration-200 ${
+                  <HiSparkles className={`h-3 w-3 sm:h-4 sm:w-4 transition-colors duration-200 ${
                     useCognioAgent ? 'text-purple-400' : 'text-[#cc2b5e] hover:text-[#753a88]'
                   }`} />
                 </motion.button>
@@ -543,13 +542,13 @@ function MessageInput({ onSendMessage, isLoading }) {
                 <motion.button
                   type="button"
                   onClick={handleVoiceInteraction}
-                  className={`p-2 rounded-xl transition-all duration-200 ${
+                  className={`p-1 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ${
                     isRecording ? 'bg-red-500/20 hover:bg-red-500/30' : 'hover:bg-white/10'
                   }`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <FiMic className={`h-4 w-4 transition-colors duration-200 ${
+                  <FiMic className={`h-3 w-3 sm:h-4 sm:w-4 transition-colors duration-200 ${
                     isRecording ? 'text-red-400' : 'text-[#cc2b5e] hover:text-[#753a88]'
                   }`} />
                 </motion.button>
@@ -557,13 +556,13 @@ function MessageInput({ onSendMessage, isLoading }) {
                 <motion.button
                   type="submit"
                   disabled={isLoading || !message.trim()}
-                  className={`p-2 rounded-xl transition-all duration-200 ${
+                  className={`p-1 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ${
                     message.trim() ? 'bg-gradient-to-r from-[#cc2b5e] to-[#753a88] hover:opacity-90' : 'hover:bg-white/10'
                   }`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <FiSend className={`h-4 w-4 transition-colors duration-200 ${
+                  <FiSend className={`h-3 w-3 sm:h-4 sm:w-4 transition-colors duration-200 ${
                     message.trim() ? 'text-white' : 'text-[#cc2b5e] hover:text-[#753a88]'
                   }`} />
                 </motion.button>
@@ -572,9 +571,9 @@ function MessageInput({ onSendMessage, isLoading }) {
           </div>
 
           {isLoading && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 flex justify-center">
+            <div className="absolute bottom-full left-0 right-0 mb-1 sm:mb-2 flex justify-center">
               <motion.div
-                className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-xs text-white/70"
+                className="px-2 sm:px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-[10px] sm:text-xs text-white/70"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
@@ -589,9 +588,9 @@ function MessageInput({ onSendMessage, isLoading }) {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="absolute bottom-full left-0 mb-2 w-[280px] sm:w-[350px] bg-black rounded-xl p-1.5 border border-white/10 z-50"
+                className="absolute bottom-full left-0 mb-1 sm:mb-2 w-[240px] xs:w-[260px] sm:w-[300px] md:w-[350px] bg-black rounded-lg sm:rounded-xl p-1 sm:p-1.5 border border-white/10 z-50"
               >
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                   {models.map((model) => (
                     <button
                       key={model.id}
@@ -599,15 +598,15 @@ function MessageInput({ onSendMessage, isLoading }) {
                         setSelectedModel(model.id);
                         setShowModelSelector(false);
                       }}
-                      className={`p-1.5 rounded-lg text-white/80 hover:bg-white/10 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
+                      className={`p-1 sm:p-1.5 rounded-lg text-white/80 hover:bg-white/10 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 ${
                         selectedModel === model.id ? 'bg-white/30' : ''
                       }`}
                     >
                       {getModelIcon(model.id)}
-                      <span className="text-center text-[8px] sm:text-[10px] leading-tight">
+                      <span className="text-center text-[7px] xs:text-[8px] sm:text-[9px] md:text-[10px] leading-tight">
                         {model.name}
                       </span>
-                      <span className="text-[8px] opacity-60">{model.cost}</span>
+                      <span className="text-[7px] xs:text-[8px] opacity-60">{model.cost}</span>
                     </button>
                   ))}
                 </div>
