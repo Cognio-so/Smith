@@ -1,31 +1,32 @@
-import { useState, useEffect, useRef } from "react"
-import MessageInput from "./MessageInput"
-import { motion, AnimatePresence } from "framer-motion"
-import { FiUser } from "react-icons/fi"
-import { BsChatLeftText } from "react-icons/bs"
-import { HiSparkles } from "react-icons/hi"
-import { speakWithDeepgram, stopSpeaking } from '../utils/textToSpeech'
-import { sendEmailWithPDF } from '../utils/emailService'
-import { useAuth } from '../context/AuthContext'
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
-import { FaRegCopy } from "react-icons/fa"
-import { LuCopyCheck } from "react-icons/lu"
+import { useState, useEffect, useRef, useCallback } from "react";
+import MessageInput from "./MessageInput";
+import { motion, AnimatePresence } from "framer-motion";
+import { FiUser } from "react-icons/fi";
+import { BsChatLeftText } from "react-icons/bs";
+import { HiSparkles } from "react-icons/hi";
+import { speakWithDeepgram, stopSpeaking } from '../utils/textToSpeech';
+import { sendEmailWithPDF } from '../utils/emailService';
+import { useAuth } from '../context/AuthContext';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { FaRegCopy } from "react-icons/fa";
+import { LuCopyCheck } from "react-icons/lu";
 
 function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onUpdateMessages }) {
-  const { user } = useAuth()
-  const [messages, setMessages] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isFirstMessage, setIsFirstMessage] = useState(true)
-  const [streamingText, setStreamingText] = useState("")
-  const [isStreaming, setIsStreaming] = useState(false)
-  const messagesEndRef = useRef(null)
-  const abortControllerRef = useRef(null)
-  const [isLoadingChat, setIsLoadingChat] = useState(false)
-  const saveInProgress = useRef(false)
-  const pendingMessages = useRef([])
-  const chatIdRef = useRef(null)
-  const [copyStatus, setCopyStatus] = useState({})
+  const { user } = useAuth();
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFirstMessage, setIsFirstMessage] = useState(true);
+  const [streamingText, setStreamingText] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const messagesEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const saveInProgress = useRef(false);
+  const pendingMessages = useRef([]);
+  const chatIdRef = useRef(null);
+  const [copyStatus, setCopyStatus] = useState({});
+  const [expandedSources, setExpandedSources] = useState({});
 
   useEffect(() => {
     if (!activeChat?.id) return;
@@ -58,12 +59,27 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         const data = await response.json();
         
         if (data.chat?.messages) {
-          const formattedMessages = data.chat.messages.map((msg, index) => ({
-            messageId: msg.messageId || `msg-${Date.now()}-${index}`,
-            content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
-            role: msg.role,
-            timestamp: msg.timestamp || new Date().toISOString()
-          }));
+          const formattedMessages = data.chat.messages.map((msg, index) => {
+            // Process message to extract image URL if present
+            let msgContent = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+            let imgUrl = msg.imageUrl || null;
+            
+            // If no direct imageUrl property but URL might be in content
+            if (!imgUrl && msg.role === "assistant" && msgContent.includes("Generated image:")) {
+              const parts = msgContent.split("Generated image:");
+              if (parts.length > 1 && parts[1].trim()) {
+                imgUrl = parts[1].trim();
+              }
+            }
+            
+            return {
+              messageId: msg.messageId || `msg-${Date.now()}-${index}`,
+              content: msgContent,
+              role: msg.role,
+              timestamp: msg.timestamp || new Date().toISOString(),
+              ...(imgUrl && { imageUrl: imgUrl })
+            };
+          });
           
           setMessages(formattedMessages);
           setIsFirstMessage(formattedMessages.length === 0);
@@ -109,13 +125,11 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       if (data.success && data.title) {
         return data.title;
       } else {
-        // Fallback to simple title generation
         const firstMessage = messages[0].content.trim();
         return firstMessage.split(/\s+/).slice(0, 3).join(' ');
       }
     } catch (error) {
       console.error('Error generating title:', error);
-      // Fallback to simple title generation
       const firstMessage = messages[0].content.trim();
       return firstMessage.split(/\s+/).slice(0, 3).join(' ');
     }
@@ -132,10 +146,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         messageCount: messagesToSave.length
       });
 
-      // Generate a proper title for new chats
       let chatTitle = activeChat.title;
       if (chatIdRef.current.startsWith('temp_') && messagesToSave.length > 0) {
-        // Only generate title for new chats
         chatTitle = await generateChatTitle(messagesToSave);
       }
 
@@ -192,12 +204,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages, streamingText])
+    scrollToBottom();
+  }, [messages, streamingText]);
 
   const predefinedPrompts = [
     {
@@ -297,6 +309,31 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         : String(content));
     
     if (!chatIdRef.current) return;
+    
+    // Check if this is an image generation response
+    let imageUrl = null;
+    let processedContent = safeContent;
+    
+    if (role === 'assistant') {
+      console.log("Assistant response:", safeContent);
+      
+      if (safeContent.includes('Generated image:')) {
+        const parts = safeContent.split('Generated image:');
+        let textPart = parts[0].trim() || "Here's the generated image:";
+        imageUrl = parts[1]?.trim();
+        
+        console.log("Extracted image URL:", imageUrl);
+        
+        if (!imageUrl || imageUrl === "") {
+          console.error("Image URL is missing from the response");
+          processedContent = textPart + " (Image generation failed - no URL returned)";
+        } else {
+          // Keep the URL in the content for backend storage, but it won't be shown to the user
+          // because our renderMessage function will extract and hide it
+          processedContent = `${textPart}\nGenerated image:${imageUrl}`;
+        }
+      }
+    }
 
     setMessages(prevMessages => {
       let updatedMessages;
@@ -304,19 +341,20 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         updatedMessages = [...prevMessages];
         updatedMessages[updatedMessages.length - 1] = {
           ...updatedMessages[updatedMessages.length - 1],
-          content: safeContent
+          content: processedContent,
+          ...(imageUrl && { imageUrl })
         };
       } else {
         const newMessage = {
           messageId: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          content: safeContent,
+          content: processedContent,
           role,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          ...(imageUrl && { imageUrl })
         };
         updatedMessages = [...prevMessages, newMessage];
       }
 
-      // Save messages for assistant role, whether streaming or not
       if (role === 'assistant') {
         saveMessages(updatedMessages);
       }
@@ -335,6 +373,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   useEffect(() => {
     if (!isLoading && pendingMessages.current.length > 0) {
       saveMessages(pendingMessages.current);
+      pendingMessages.current = []; // Clear pending messages after saving
     }
   }, [isLoading]);
 
@@ -349,7 +388,154 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     });
   };
 
+  const toggleSourcesExpansion = (messageId) => {
+    setExpandedSources(prev => ({
+      ...prev,
+      [messageId]: !prev[messageId]
+    }));
+  };
+
   const renderMessage = (message, index) => {
+    // Process the message content first
+    let imageUrl = message.imageUrl || null;
+    let messageContent = message.content;
+    let sources = [];
+    
+    // Format the message content to ensure proper markdown parsing
+    if (message.role === "assistant") {
+      // Ensure proper line breaks for markdown formatting
+      messageContent = messageContent
+        // Ensure bullet points have a space after the asterisk
+        .replace(/\n\s*\*(?!\s)/g, "\n* ")
+        // Ensure numbered lists have a space after the number
+        .replace(/\n\s*(\d+)\.(?!\s)/g, "\n$1. ")
+        // Ensure headings have a space after the hash
+        .replace(/\n\s*(#{1,6})(?!\s)/g, "\n$1 ")
+        // Ensure proper code block formatting
+        .replace(/```(\w*)\n/g, "```$1\n")
+        // Improve spacing around blocks
+        .replace(/\n{3,}/g, "\n\n");
+        
+      // Rest of the message processing code (image extraction, sources, etc.)
+      // COMPLETELY REVISED SOURCE EXTRACTION LOGIC
+      
+      // Method 1: Look for explicit "Sources:" section
+      if (messageContent.includes("Sources:")) {
+        const parts = messageContent.split(/Sources:\s*/i);
+        messageContent = parts[0].trim();
+        
+        // Extract all URLs from the sources section
+        const sourcesText = parts[1]?.trim();
+        if (sourcesText) {
+          // Extract all URLs from the Sources section
+          const urlRegex = /(https?:\/\/[^\s\n"')]+)/g;
+          const allUrls = sourcesText.match(urlRegex);
+          
+          if (allUrls && allUrls.length > 0) {
+            sources = allUrls.map(url => url.trim());
+          }
+        }
+      }
+      
+      // Method 2: Look for numbered citations like [1] and corresponding URLs
+      if (sources.length === 0) {
+        const citationRegex = /\[(\d+)\]/g;
+        const citations = [];
+        let match;
+        
+        while ((match = citationRegex.exec(messageContent)) !== null) {
+          citations.push(match[1]);
+        }
+        
+        if (citations.length > 0) {
+          // Look for URLs anywhere in the message content
+          const urlRegex = /(https?:\/\/[^\s\n"')]+)/g;
+          const allUrls = messageContent.match(urlRegex);
+          
+          if (allUrls && allUrls.length > 0) {
+            sources = allUrls.map(url => url.trim());
+            
+            // Remove the raw URLs from the message content to clean it up
+            allUrls.forEach(url => {
+              messageContent = messageContent.replace(url, "");
+            });
+            
+            // Clean up any artifacts left after removing URLs
+            messageContent = messageContent
+              .replace(/\[\d+\]\s*\[\s*\]/g, "") // Remove empty citations
+              .replace(/\s{2,}/g, " ")           // Remove double spaces
+              .replace(/\n\s*\n/g, "\n\n")       // Remove empty lines
+              .trim();
+          }
+        }
+      }
+      
+      // Method 3: Last resort - just look for URLs throughout the content
+      if (sources.length === 0) {
+        // Extract any URL that might be in the text
+        const urlRegex = /(https?:\/\/[^\s\n"')]+)/g;
+        const allUrls = messageContent.match(urlRegex);
+        
+        if (allUrls && allUrls.length > 0) {
+          sources = allUrls.map(url => url.trim());
+          
+          // Only remove URLs if they appear at the end of the message
+          // (to avoid removing URLs that are part of the actual content)
+          const lastParagraphRegex = /\n\s*([^\n]+)$/;
+          const lastParagraph = messageContent.match(lastParagraphRegex);
+          
+          if (lastParagraph && lastParagraph[1]) {
+            const lastParagraphText = lastParagraph[1];
+            const urlsInLastParagraph = lastParagraphText.match(urlRegex);
+            
+            if (urlsInLastParagraph && urlsInLastParagraph.length > 0) {
+              // If the last paragraph contains URLs, remove them
+              let newLastParagraph = lastParagraphText;
+              urlsInLastParagraph.forEach(url => {
+                newLastParagraph = newLastParagraph.replace(url, "");
+              });
+              
+              // Replace the last paragraph with the cleaned version
+              if (newLastParagraph.trim().length === 0) {
+                // If last paragraph is now empty, remove it entirely
+                messageContent = messageContent.replace(lastParagraphRegex, "");
+              } else {
+                // Otherwise, replace it with the cleaned version
+                messageContent = messageContent.replace(lastParagraphRegex, "\n" + newLastParagraph.trim());
+              }
+            }
+          }
+        }
+      }
+      
+      // Deduplicate and filter sources
+      if (sources.length > 0) {
+        // Filter out any non-URLs and deduplicate
+        sources = [...new Set(sources)].filter(url => {
+          return url && 
+            url.startsWith('http') && 
+            url.includes('.') &&
+            !url.endsWith('.') && 
+            !url.endsWith(',');
+        });
+        
+        // Remove trailing punctuation if any
+        sources = sources.map(url => {
+          return url.replace(/[.,;:!?)]+$/, '');
+        });
+        
+        console.log("Final extracted sources:", sources);
+      }
+    }
+
+    // In the sources section, add this debug line to check how many sources are actually being found
+    console.log("Sources found in message:", sources.length, sources);
+
+    // Make sure to log the raw message content as well to see what's coming in
+    if (message.role === "assistant") {
+      console.log("Raw assistant message:", messageContent);
+    }
+
     return (
       <motion.div
         key={message.messageId}
@@ -377,9 +563,11 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           className={`max-w-[85%] sm:max-w-[75%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-lg ${
             message.role === "user"
               ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] text-white/90 border border-white/10"
-              : `bg-[#1a1a1a] text-slate-200 border border-white/10 ${
-                  message.isVoice ? 'voice-message' : ''
-                }`
+              : message.content.includes("Error:") || message.content.includes("⚠️")
+                ? "bg-red-900/20 text-slate-200 border border-red-500/30"
+                : `bg-[#1a1a1a] text-slate-200 border border-white/10 ${
+                    message.isVoice ? 'voice-message' : ''
+                  }`
           }`}
         >
           <motion.div
@@ -392,40 +580,48 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               <div className="text-xs text-[#cc2b5e] mb-1">🎤 Voice Message</div>
             )}
             
-            <div className="prose prose-invert max-w-none overflow-x-auto">
+            <div className="prose prose-invert max-w-none">
               <ReactMarkdown
+                key={message.messageId}
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  li: ({ node, ...props }) => (
-                    <li {...props} className="my-1">
-                      {props.children}
-                    </li>
+                  h1: ({ node, ...props }) => (
+                    <h1 className="text-2xl font-bold mt-6 mb-4 text-white" {...props} />
                   ),
-                  h1: ({ node, ...props }) => <h1 {...props} className="text-2xl font-bold my-4" />,
-                  h2: ({ node, ...props }) => <h2 {...props} className="text-xl font-bold my-3" />,
-                  h3: ({ node, ...props }) => <h3 {...props} className="text-lg font-bold my-2" />,
-                  p: ({ node, ...props }) => <p {...props} className="my-2" />,
-                  ul: ({ node, ...props }) => <ul {...props} className="list-disc pl-5 my-3" />,
-                  ol: ({ node, ...props }) => <ol {...props} className="list-decimal pl-5 my-3" />,
-                  strong: ({ node, ...props }) => <strong {...props} className="font-bold" />,
-                  a: ({ node, ...props }) => <a {...props} className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer" />,
-                  blockquote: ({ node, ...props }) => <blockquote {...props} className="border-l-4 border-gray-400 pl-4 italic my-3" />,
+                  h2: ({ node, ...props }) => (
+                    <h2 className="text-xl font-bold mt-5 mb-3 text-white" {...props} />
+                  ),
+                  h3: ({ node, ...props }) => (
+                    <h3 className="text-lg font-bold mt-4 mb-2 text-white" {...props} />
+                  ),
+                  p: ({ node, ...props }) => (
+                    <p className="my-3 text-white/90 leading-relaxed" {...props} />
+                  ),
+                  ul: ({ node, ...props }) => (
+                    <ul className="list-disc list-outside pl-6 my-3 text-white/90" {...props} />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol className="list-decimal list-outside pl-6 my-3 text-white/90" {...props} />
+                  ),
+                  li: ({ node, ...props }) => (
+                    <li className="my-1 pl-1 text-white/90" {...props} />
+                  ),
                   code: ({ node, inline, className, children, ...props }) => {
                     const match = /language-(\w+)/.exec(className || '');
                     const language = match ? match[1] : '';
-                    const id = `code-${Math.random().toString(36).substr(2, 9)}`;
-                    
+                    const id = `code-${message.messageId}`;
+
                     return inline ? (
                       <code
+                        className="bg-[#2d333b]/30 text-white/90 px-1 py-0.5 rounded font-mono text-sm"
                         {...props}
-                        className="bg-[#2d333b]/30 text-white/90 text-sm font-mono rounded px-1 py-0.5"
                       >
                         {children}
                       </code>
                     ) : (
                       <div className="relative my-4 rounded-md overflow-hidden border border-white/10">
                         {language && (
-                          <div className="bg-[#1e1e1e] text-white/60 text-xs px-4 py-1 border-b border-white/10">
+                          <div className="bg-[#2d333b] text-white/60 text-xs px-3 py-1 border-b border-white/10">
                             {language}
                           </div>
                         )}
@@ -440,9 +636,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                           )}
                         </div>
                         <pre
+                          className="bg-[#1e1e1e] text-white/90 p-4 font-mono text-sm overflow-x-auto"
                           {...props}
-                          id={id}
-                          className="bg-[#1e1e1e] text-white/90 text-sm font-mono p-4 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-700"
                         >
                           <code className={language ? `language-${language}` : ''}>
                             {children}
@@ -451,48 +646,116 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                       </div>
                     );
                   },
-                  table: ({ node, children, ...props }) => (
-                    <div className="overflow-x-auto my-4 border border-white/10 rounded-md">
-                      <table {...props} className="min-w-full border-collapse">
-                        {children}
-                      </table>
+                  table: ({ node, ...props }) => (
+                    <div className="overflow-x-auto my-4">
+                      <table className="w-full border-collapse border border-white/10" {...props} />
                     </div>
                   ),
-                  thead: ({ node, children, ...props }) => (
-                    <thead {...props} className="bg-[#2d333b]/50 border-b border-white/10">
-                      {children}
-                    </thead>
+                  thead: ({ node, ...props }) => (
+                    <thead className="bg-[#2d333b]/30" {...props} />
                   ),
-                  tbody: ({ node, children, ...props }) => (
-                    <tbody {...props} className="bg-[#1e1e1e]/30">
-                      {children}
-                    </tbody>
+                  tbody: ({ node, ...props }) => (
+                    <tbody {...props} />
                   ),
-                  tr: ({ node, children, ...props }) => (
-                    <tr {...props} className="border-b border-white/10 hover:bg-[#2d333b]/30">
-                      {children}
-                    </tr>
+                  tr: ({ node, ...props }) => (
+                    <tr className="border-b border-white/10" {...props} />
                   ),
-                  th: ({ node, children, ...props }) => (
+                  th: ({ node, ...props }) => (
                     <th
+                      className="px-4 py-2 text-left font-semibold text-white/90 border border-white/10"
                       {...props}
-                      className="px-4 py-2 text-left text-sm font-medium text-white/90 border-r border-white/10 last:border-r-0"
-                    >
-                      {children}
-                    </th>
+                    />
                   ),
-                  td: ({ node, children, ...props }) => (
+                  td: ({ node, ...props }) => (
                     <td
+                      className="px-4 py-2 text-white/90 border border-white/10"
                       {...props}
-                      className="px-4 py-2 text-sm text-white/80 border-r border-white/10 last:border-r-0"
-                    >
-                      {children}
-                    </td>
+                    />
                   ),
+                  a: ({ node, ...props }) => (
+                    <a
+                      className="text-blue-400 hover:underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...props}
+                    />
+                  ),
+                  blockquote: ({ node, ...props }) => (
+                    <blockquote
+                      className="border-l-4 border-white/20 pl-4 my-3 italic text-white/80"
+                      {...props}
+                    />
+                  )
                 }}
               >
-                {message.content}
+                {messageContent}
               </ReactMarkdown>
+              
+              {/* Display image if URL is present */}
+              {imageUrl && (
+                <div className="mt-4">
+                  <ImageWithLoading src={imageUrl} alt="Generated image" />
+                </div>
+              )}
+              
+              {/* Display sources if available */}
+              {sources.length > 0 && !messageContent.includes("Generated image:") && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <div 
+                    className="text-sm text-white/70 mb-2 font-medium flex items-center gap-2 cursor-pointer hover:text-white/90 transition-colors"
+                    onClick={() => toggleSourcesExpansion(message.messageId)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
+                    </svg>
+                    Sources: <span className="text-xs ml-1">({sources.length})</span>
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      className={`h-4 w-4 transition-transform ${expandedSources[message.messageId] ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                  {expandedSources[message.messageId] && (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {sources.map((source, i) => {
+                        // Extract domain name for favicon and display
+                        const domainMatch = source.match(/^https?:\/\/(?:www\.)?([^\/]+)/);
+                        const domain = domainMatch ? domainMatch[1] : "website";
+                        
+                        return (
+                          <a 
+                            key={i} 
+                            href={source} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors px-2 py-1 rounded-md border border-white/10"
+                            title={source}
+                          >
+                            <div className="w-4 h-4 rounded-sm overflow-hidden flex-shrink-0 bg-gray-800 flex items-center justify-center">
+                              <img 
+                                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} 
+                                alt=""
+                                className="w-4 h-4 object-contain"
+                                onError={(e) => {
+                                  e.target.onerror = null; 
+                                  e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23aaaaaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='8' x2='12' y2='16'%3E%3C/line%3E%3Cline x1='8' y1='12' x2='16' y2='12'%3E%3C/line%3E%3C/svg%3E";
+                                }}
+                              />
+                            </div>
+                            <span className="text-xs text-white/80 truncate max-w-[100px]">
+                              {domain}
+                            </span>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
@@ -533,11 +796,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
   const createNewChat = () => {
     const newChat = {
-        id: `temp_${Date.now()}`,
-        title: 'New Chat',
-        messages: []
+      id: `temp_${Date.now()}`,
+      title: 'New Chat',
+      messages: []
     };
-    setActiveChat(newChat);
+    // Assuming setActiveChat is passed as a prop or available in context
+    if (typeof setActiveChat === 'function') setActiveChat(newChat);
   };
 
   useEffect(() => {
@@ -560,6 +824,104 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       seen.add(key);
       return true;
     });
+  };
+
+  const ImageWithLoading = ({ src, alt }) => {
+    const [status, setStatus] = useState('loading');
+    const [retryCount, setRetryCount] = useState(0);
+    const maxRetries = 5;
+    const retryTimeoutRef = useRef(null);
+    
+    // Force preload the image
+    useEffect(() => {
+      const preloadImage = () => {
+        setStatus('loading');
+        setRetryCount(0);
+        
+        // Clear any existing timeout
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        
+        // Create a new Image object for preloading
+        const img = new Image();
+        
+        img.onload = () => {
+          setStatus('success');
+        };
+        
+        img.onerror = () => {
+          if (retryCount < maxRetries) {
+            const delay = 1000 * Math.pow(1.5, retryCount); // Exponential backoff
+            console.log(`Image load failed. Retry ${retryCount + 1}/${maxRetries} in ${delay}ms`);
+            
+            // Store the timeout reference so we can clear it if needed
+            retryTimeoutRef.current = setTimeout(() => {
+              setRetryCount(prev => prev + 1);
+              // Try again with the same src by forcing a reload
+              img.src = src + `?retry=${Date.now()}`;
+            }, delay);
+          } else {
+            setStatus('error');
+          }
+        };
+        
+        // Set src last to start loading (with cache buster to avoid browser cache)
+        img.src = src + `?t=${Date.now()}`;
+      };
+      
+      preloadImage();
+      
+      // Cleanup function
+      return () => {
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+      };
+    }, [src, retryCount, maxRetries]);
+    
+    const handleRetry = () => {
+      setRetryCount(0);
+      setStatus('loading');
+    };
+    
+    return (
+      <div className="relative mt-3">
+        {status === 'loading' && (
+          <div className="flex items-center justify-center bg-gray-800 rounded-lg min-h-[200px] w-full">
+            <div className="flex flex-col items-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#cc2b5e]"></div>
+              <div className="text-sm text-gray-400 mt-2">
+                Loading image{retryCount > 0 ? ` (retry ${retryCount + 1}/${maxRetries})` : '...'}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {status === 'error' && (
+          <div className="flex items-center justify-center bg-gray-800 rounded-lg min-h-[200px] w-full">
+            <div className="text-center text-gray-400">
+              <div className="text-red-400 text-2xl mb-2">⚠️</div>
+              <div>Failed to load image after multiple attempts</div>
+              <button 
+                onClick={handleRetry}
+                className="text-blue-400 text-xs mt-2 block hover:underline"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {status === 'success' && (
+          <img 
+            src={src}
+            alt={alt}
+            className="rounded-lg max-w-full object-contain max-h-[400px]"
+          />
+        )}
+      </div>
+    );
   };
 
   return (

@@ -52,6 +52,7 @@ function MessageInput({ onSendMessage, isLoading }) {
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const speechTimeoutRef = useRef(null);
   const [useAgent, setUseAgent] = useState(false);
+  const [useCognioAgent, setUseCognioAgent] = useState(false);
 
   const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000' || 'https://python-backend-algohype.replit.app';
 
@@ -224,7 +225,13 @@ function MessageInput({ onSendMessage, isLoading }) {
   
       const token = localStorage.getItem('token');
       
-      const endpoint = useAgent ? `/agent-chat` : `/chat`;
+      let endpoint = `/chat`;
+      
+      if (useAgent) {
+        endpoint = `/agent-chat`;
+      } else if (useCognioAgent) {
+        endpoint = `/cognio-agent`;
+      }
       
       const response = await fetch(`${PYTHON_API_URL}${endpoint}`, {
         method: 'POST',
@@ -237,7 +244,10 @@ function MessageInput({ onSendMessage, isLoading }) {
         },
         body: JSON.stringify({
           message: currentMessage,
-          model: selectedModel
+          model: selectedModel,
+          file_url: uploadedFile || "",
+          web_search_enabled: useCognioAgent ? true : false,
+          deep_research: false
         }),
         signal: abortControllerRef.current.signal
       });
@@ -507,6 +517,26 @@ function MessageInput({ onSendMessage, isLoading }) {
                 >
                   <RiRobot2Line className={`h-4 w-4 transition-colors duration-200 ${
                     useAgent ? 'text-[#cc2b5e]' : 'text-[#cc2b5e] hover:text-[#753a88]'
+                  }`} />
+                </motion.button>
+
+                <motion.button
+                  type="button"
+                  onClick={() => {
+                    if (!useCognioAgent) {
+                      setUseAgent(false);
+                    }
+                    setUseCognioAgent(!useCognioAgent);
+                  }}
+                  className={`p-2 rounded-xl transition-all duration-200 ${
+                    useCognioAgent ? 'bg-purple-500/20 hover:bg-purple-500/30' : 'hover:bg-white/10'
+                  }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title={useCognioAgent ? "Using Cognio Agent" : "Switch to Cognio Agent"}
+                >
+                  <HiSparkles className={`h-4 w-4 transition-colors duration-200 ${
+                    useCognioAgent ? 'text-purple-400' : 'text-[#cc2b5e] hover:text-[#753a88]'
                   }`} />
                 </motion.button>
 
