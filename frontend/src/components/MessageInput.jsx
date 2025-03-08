@@ -54,7 +54,7 @@ function MessageInput({ onSendMessage, isLoading }) {
   const [useAgent, setUseAgent] = useState(false);
   const [useCognioAgent, setUseCognioAgent] = useState(false);
 
-  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000' || 'https://python-backend-algohype.replit.app';
+  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000' || 'https://python-backend-2-algohype.replit.app';
 
   const cancelCurrentRequest = () => {
     if (abortControllerRef.current) {
