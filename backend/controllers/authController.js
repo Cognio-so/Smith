@@ -128,8 +128,9 @@ const googleCallback = (req, res) => {
       maxAge: 30 * 24 * 60 * 60 * 1000
     });
 
-    // Redirect to frontend dashboard
-    res.redirect(`${process.env.FRONTEND_URL || 'https://smith-frontend.vercel.app'}/dashboard`);
+    // Redirect with token as query param for fallback
+    const redirectUrl = `${process.env.FRONTEND_URL || 'https://smith-frontend.vercel.app'}/dashboard?token=${req.user.token}`;
+    res.redirect(redirectUrl);
   } catch (error) {
     console.error('Google auth callback error:', error);
     res.redirect(`${process.env.FRONTEND_URL || 'https://smith-frontend.vercel.app'}/login?error=auth_failed`);

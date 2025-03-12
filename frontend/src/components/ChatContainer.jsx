@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import MessageInput from "./MessageInput";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiUser } from "react-icons/fi";
 import { BsChatLeftText } from "react-icons/bs";
 import { HiSparkles } from "react-icons/hi";
-import { speakWithDeepgram, stopSpeaking } from '../utils/textToSpeech';
-import { sendEmailWithPDF } from '../utils/emailService';
-import { useAuth } from '../context/AuthContext';
+import { speakWithDeepgram, stopSpeaking } from "../utils/textToSpeech";
+import { sendEmailWithPDF } from "../utils/emailService";
+import { useAuth } from "../context/AuthContext";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { FaRegCopy } from "react-icons/fa";
@@ -35,7 +35,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     setIsLoadingChat(true);
     
     const loadChat = async () => {
-      if (activeChat.id.startsWith('temp_')) {
+      if (activeChat.id.startsWith("temp_")) {
         setMessages([]);
         setIsFirstMessage(true);
         setIsLoadingChat(false);
@@ -43,14 +43,17 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       }
       
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`https://smith-backend-psi.vercel.app/api/chats/${activeChat.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include'
-        });
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          `https://smith-backend-psi.vercel.app/api/chats/${activeChat.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json"
+            },
+            credentials: "include"
+          }
+        );
 
         if (!response.ok) {
           throw new Error(`Failed to load chat: ${response.status}`);
@@ -60,11 +63,9 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         
         if (data.chat?.messages) {
           const formattedMessages = data.chat.messages.map((msg, index) => {
-            // Process message to extract image URL if present
-            let msgContent = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+            let msgContent = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
             let imgUrl = msg.imageUrl || null;
             
-            // If no direct imageUrl property but URL might be in content
             if (!imgUrl && msg.role === "assistant" && msgContent.includes("Generated image:")) {
               const parts = msgContent.split("Generated image:");
               if (parts.length > 1 && parts[1].trim()) {
@@ -85,14 +86,17 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           setIsFirstMessage(formattedMessages.length === 0);
         }
       } catch (error) {
-        console.error('Error loading chat:', error);
-        if (!activeChat.id.startsWith('temp_')) {
-          setMessages(prev => [...prev, {
-            messageId: `error-${Date.now()}`,
-            content: `Error loading chat: ${error.message}`,
-            role: "system",
-            timestamp: new Date().toISOString()
-          }]);
+        console.error("Error loading chat:", error);
+        if (!activeChat.id.startsWith("temp_")) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              messageId: `error-${Date.now()}`,
+              content: `Error loading chat: ${error.message}`,
+              role: "system",
+              timestamp: new Date().toISOString()
+            }
+          ]);
         }
       } finally {
         setIsLoadingChat(false);
@@ -103,21 +107,21 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   }, [activeChat?.id]);
 
   const generateChatTitle = async (messages) => {
-    if (!messages || messages.length === 0) return 'New Chat';
+    if (!messages || messages.length === 0) return "New Chat";
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('https://smith-backend-psi.vercel.app/api/ai/generate-title', {
-        method: 'POST',
+      const token = localStorage.getItem("token");
+      const response = await fetch("https://smith-backend-psi.vercel.app/api/ai/generate-title", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ messages })
       });
       
       if (!response.ok) {
-        throw new Error('Failed to generate title');
+        throw new Error("Failed to generate title");
       }
       
       const data = await response.json();
@@ -126,12 +130,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         return data.title;
       } else {
         const firstMessage = messages[0].content.trim();
-        return firstMessage.split(/\s+/).slice(0, 3).join(' ');
+        return firstMessage.split(/\s+/).slice(0, 3).join(" ");
       }
     } catch (error) {
-      console.error('Error generating title:', error);
+      console.error("Error generating title:", error);
       const firstMessage = messages[0].content.trim();
-      return firstMessage.split(/\s+/).slice(0, 3).join(' ');
+      return firstMessage.split(/\s+/).slice(0, 3).join(" ");
     }
   };
 
@@ -141,35 +145,35 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     saveInProgress.current = true;
 
     try {
-      console.log('Saving chat:', {
+      console.log("Saving chat:", {
         chatId: chatIdRef.current,
         messageCount: messagesToSave.length
       });
 
       let chatTitle = activeChat.title;
-      if (chatIdRef.current.startsWith('temp_') && messagesToSave.length > 0) {
+      if (chatIdRef.current.startsWith("temp_") && messagesToSave.length > 0) {
         chatTitle = await generateChatTitle(messagesToSave);
       }
 
-      const token = localStorage.getItem('token');
-      const isTemporaryChat = chatIdRef.current.startsWith('temp_');
+      const token = localStorage.getItem("token");
+      const isTemporaryChat = chatIdRef.current.startsWith("temp_");
       
       const endpoint = isTemporaryChat 
-        ? 'https://smith-backend-psi.vercel.app/api/chats/save'
+        ? "https://smith-backend-psi.vercel.app/api/chats/save"
         : `https://smith-backend-psi.vercel.app/api/chats/${chatIdRef.current}/update`;
       
-      const method = isTemporaryChat ? 'POST' : 'PUT';
+      const method = isTemporaryChat ? "POST" : "PUT";
 
       const response = await fetch(endpoint, {
         method,
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
         },
-        credentials: 'include',
+        credentials: "include",
         body: JSON.stringify({
           chatId: chatIdRef.current,
-          title: chatTitle || 'New Chat',
+          title: chatTitle || "New Chat",
           messages: messagesToSave
         })
       });
@@ -177,7 +181,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to save chat');
+        throw new Error(data.error || "Failed to save chat");
       }
 
       if (data.success) {
@@ -197,7 +201,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       }
 
     } catch (error) {
-      console.error('Error saving chat:', error);
+      console.error("Error saving chat:", error);
     } finally {
       saveInProgress.current = false;
     }
@@ -263,7 +267,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const handleEmailRequest = async (recentMessages) => {
     try {
       if (!user?.email) {
-        throw new Error('User email not found');
+        throw new Error("User email not found");
       }
 
       const lastMessages = recentMessages.slice(-10);
@@ -271,27 +275,33 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       const result = await sendEmailWithPDF(
         user.email,
         lastMessages,
-        `Chat Summary - ${activeChat?.title || 'AI Conversation'}`
+        `Chat Summary - ${activeChat?.title || "AI Conversation"}`
       );
 
-      console.log('Email send result:', result);
+      console.log("Email send result:", result);
 
-      setMessages(prev => [...prev, {
-        messageId: `sys-${Date.now()}`,
-        content: `✅ I've sent the email to ${user.email} with our conversation. Please check your inbox!`,
-        role: "assistant",
-        timestamp: new Date().toISOString()
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          messageId: `sys-${Date.now()}`,
+          content: `✅ I've sent the email to ${user.email} with our conversation. Please check your inbox!`,
+          role: "assistant",
+          timestamp: new Date().toISOString()
+        }
+      ]);
 
     } catch (error) {
-      console.error('Email send error:', error);
+      console.error("Email send error:", error);
       
-      setMessages(prev => [...prev, {
-        messageId: `err-${Date.now()}`,
-        content: `❌ Sorry, I couldn't send the email: ${error.message}. Please try again or contact support if the issue persists.`,
-        role: "assistant",
-        timestamp: new Date().toISOString()
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          messageId: `err-${Date.now()}`,
+          content: `❌ Sorry, I couldn't send the email: ${error.message}. Please try again or contact support if the issue persists.`,
+          role: "assistant",
+          timestamp: new Date().toISOString()
+        }
+      ]);
     }
   };
 
@@ -302,42 +312,38 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   }, [messages, onUpdateMessages]);
 
   const addMessage = async (content, role, isStreaming = false) => {
-    const safeContent = typeof content === 'string' 
+    const safeContent = typeof content === "string" 
       ? content 
-      : (content && typeof content === 'object' 
+      : (content && typeof content === "object" 
         ? JSON.stringify(content) 
         : String(content));
     
     if (!chatIdRef.current) return;
     
-    // Check if this is an image generation response
     let imageUrl = null;
     let processedContent = safeContent;
     
-    if (role === 'assistant') {
+    if (role === "assistant") {
       console.log("Assistant response:", safeContent);
       
-      if (safeContent.includes('Generated image:')) {
-        const parts = safeContent.split('Generated image:');
+      if (safeContent.includes("Generated image:")) {
+        const parts = safeContent.split("Generated image:");
         let textPart = parts[0].trim() || "Here's the generated image:";
         imageUrl = parts[1]?.trim();
         
         console.log("Extracted image URL:", imageUrl);
         
         if (!imageUrl || imageUrl === "") {
-          console.error("Image URL is missing from the response");
-          processedContent = textPart + " (Image generation failed - no URL returned)";
+          processedContent = textPart + "\n\n(Image generation failed - no URL returned)";
         } else {
-          // Keep the URL in the content for backend storage, but it won't be shown to the user
-          // because our renderMessage function will extract and hide it
-          processedContent = `${textPart}\nGenerated image:${imageUrl}`;
+          processedContent = textPart;
         }
       }
     }
 
-    setMessages(prevMessages => {
+    setMessages((prevMessages) => {
       let updatedMessages;
-      if (isStreaming && prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === 'assistant') {
+      if (isStreaming && prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === "assistant") {
         updatedMessages = [...prevMessages];
         updatedMessages[updatedMessages.length - 1] = {
           ...updatedMessages[updatedMessages.length - 1],
@@ -355,7 +361,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         updatedMessages = [...prevMessages, newMessage];
       }
 
-      if (role === 'assistant') {
+      if (role === "assistant") {
         saveMessages(updatedMessages);
       }
       
@@ -373,7 +379,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   useEffect(() => {
     if (!isLoading && pendingMessages.current.length > 0) {
       saveMessages(pendingMessages.current);
-      pendingMessages.current = []; // Clear pending messages after saving
+      pendingMessages.current = [];
     }
   }, [isLoading]);
 
@@ -383,27 +389,24 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
   const copyToClipboard = (content, messageId) => {
     navigator.clipboard.writeText(content).then(() => {
-      setCopyStatus(prev => ({ ...prev, [messageId]: true }));
-      setTimeout(() => setCopyStatus(prev => ({ ...prev, [messageId]: false })), 2000);
+      setCopyStatus((prev) => ({ ...prev, [messageId]: true }));
+      setTimeout(() => setCopyStatus((prev) => ({ ...prev, [messageId]: false })), 2000);
     });
   };
 
   const toggleSourcesExpansion = (messageId) => {
-    setExpandedSources(prev => ({
+    setExpandedSources((prev) => ({
       ...prev,
       [messageId]: !prev[messageId]
     }));
   };
 
   const renderMessage = (message, index) => {
-    // Process the message content first
     let imageUrl = message.imageUrl || null;
     let messageContent = message.content;
     let sources = [];
     
-    // Format the message content to ensure proper markdown parsing
     if (message.role === "assistant") {
-      // Ensure proper line breaks for markdown formatting
       messageContent = messageContent
         // Ensure bullet points have a space after the asterisk
         .replace(/\n\s*\*(?!\s)/g, "\n* ")
@@ -411,23 +414,21 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         .replace(/\n\s*(\d+)\.(?!\s)/g, "\n$1. ")
         // Ensure headings have a space after the hash
         .replace(/\n\s*(#{1,6})(?!\s)/g, "\n$1 ")
+        // Fix bold formatting
+        .replace(/\*\*(?!\s)(.*?)(?<!\s)\*\*/g, "**$1**")
+        // Fix italic formatting 
+        .replace(/\*(?!\s|\*)(.*?)(?<!\s|\*)\*/g, "*$1*")
         // Ensure proper code block formatting
         .replace(/```(\w*)\n/g, "```$1\n")
         // Improve spacing around blocks
         .replace(/\n{3,}/g, "\n\n");
         
-      // Rest of the message processing code (image extraction, sources, etc.)
-      // COMPLETELY REVISED SOURCE EXTRACTION LOGIC
-      
-      // Method 1: Look for explicit "Sources:" section
       if (messageContent.includes("Sources:")) {
         const parts = messageContent.split(/Sources:\s*/i);
         messageContent = parts[0].trim();
         
-        // Extract all URLs from the sources section
         const sourcesText = parts[1]?.trim();
         if (sourcesText) {
-          // Extract all URLs from the Sources section
           const urlRegex = /(https?:\/\/[^\s\n"')]+)/g;
           const allUrls = sourcesText.match(urlRegex);
           
@@ -437,7 +438,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         }
       }
       
-      // Method 2: Look for numbered citations like [1] and corresponding URLs
       if (sources.length === 0) {
         const citationRegex = /\[(\d+)\]/g;
         const citations = [];
@@ -448,39 +448,31 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         }
         
         if (citations.length > 0) {
-          // Look for URLs anywhere in the message content
           const urlRegex = /(https?:\/\/[^\s\n"')]+)/g;
           const allUrls = messageContent.match(urlRegex);
           
           if (allUrls && allUrls.length > 0) {
             sources = allUrls.map(url => url.trim());
-            
-            // Remove the raw URLs from the message content to clean it up
             allUrls.forEach(url => {
               messageContent = messageContent.replace(url, "");
             });
             
-            // Clean up any artifacts left after removing URLs
             messageContent = messageContent
-              .replace(/\[\d+\]\s*\[\s*\]/g, "") // Remove empty citations
-              .replace(/\s{2,}/g, " ")           // Remove double spaces
-              .replace(/\n\s*\n/g, "\n\n")       // Remove empty lines
+              .replace(/\[\d+\]\s*\[\s*\]/g, "")
+              .replace(/\s{2,}/g, " ")
+              .replace(/\n\s*\n/g, "\n\n")
               .trim();
           }
         }
       }
       
-      // Method 3: Last resort - just look for URLs throughout the content
       if (sources.length === 0) {
-        // Extract any URL that might be in the text
         const urlRegex = /(https?:\/\/[^\s\n"')]+)/g;
         const allUrls = messageContent.match(urlRegex);
         
         if (allUrls && allUrls.length > 0) {
           sources = allUrls.map(url => url.trim());
           
-          // Only remove URLs if they appear at the end of the message
-          // (to avoid removing URLs that are part of the actual content)
           const lastParagraphRegex = /\n\s*([^\n]+)$/;
           const lastParagraph = messageContent.match(lastParagraphRegex);
           
@@ -489,18 +481,14 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
             const urlsInLastParagraph = lastParagraphText.match(urlRegex);
             
             if (urlsInLastParagraph && urlsInLastParagraph.length > 0) {
-              // If the last paragraph contains URLs, remove them
               let newLastParagraph = lastParagraphText;
               urlsInLastParagraph.forEach(url => {
                 newLastParagraph = newLastParagraph.replace(url, "");
               });
               
-              // Replace the last paragraph with the cleaned version
               if (newLastParagraph.trim().length === 0) {
-                // If last paragraph is now empty, remove it entirely
                 messageContent = messageContent.replace(lastParagraphRegex, "");
               } else {
-                // Otherwise, replace it with the cleaned version
                 messageContent = messageContent.replace(lastParagraphRegex, "\n" + newLastParagraph.trim());
               }
             }
@@ -508,30 +496,21 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         }
       }
       
-      // Deduplicate and filter sources
       if (sources.length > 0) {
-        // Filter out any non-URLs and deduplicate
         sources = [...new Set(sources)].filter(url => {
           return url && 
-            url.startsWith('http') && 
-            url.includes('.') &&
-            !url.endsWith('.') && 
-            !url.endsWith(',');
+            url.startsWith("http") && 
+            url.includes(".") &&
+            !url.endsWith(".") && 
+            !url.endsWith(",");
         });
         
-        // Remove trailing punctuation if any
-        sources = sources.map(url => {
-          return url.replace(/[.,;:!?)]+$/, '');
-        });
-        
+        sources = sources.map(url => url.replace(/[.,;:!?)]+$/, ""));
         console.log("Final extracted sources:", sources);
       }
     }
 
-    // In the sources section, add this debug line to check how many sources are actually being found
     console.log("Sources found in message:", sources.length, sources);
-
-    // Make sure to log the raw message content as well to see what's coming in
     if (message.role === "assistant") {
       console.log("Raw assistant message:", messageContent);
     }
@@ -542,9 +521,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         initial="hidden"
         animate="visible"
         variants={messageVariants}
-        className={`flex items-start gap-3 mb-8 ${
-          message.role === "user" ? "justify-end" : "justify-start"
-        }`}
+        className={`flex items-start gap-3 mb-8 ${message.role === "user" ? "justify-end" : "justify-start"}`}
       >
         {message.role !== "user" && (
           <motion.div
@@ -565,10 +542,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] text-white/90 border border-white/10"
               : message.content.includes("Error:") || message.content.includes("⚠️")
                 ? "bg-red-900/20 text-slate-200 border border-red-500/30"
-                : `bg-[#1a1a1a] text-slate-200 border border-white/10 ${
-                    message.isVoice ? 'voice-message' : ''
-                  }`
-          }`}
+                : "bg-[#1a1a1a] text-slate-200 border border-white/10"
+          } break-words`}
         >
           <motion.div
             initial={{ opacity: 0 }}
@@ -580,7 +555,10 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               <div className="text-xs text-[#cc2b5e] mb-1">🎤 Voice Message</div>
             )}
             
-            <div className="prose prose-invert max-w-none">
+            <div 
+              className="prose prose-invert max-w-none overflow-auto"
+              style={{ wordBreak: 'break-word' }}
+            >
               <ReactMarkdown
                 key={message.messageId}
                 remarkPlugins={[remarkGfm]}
@@ -593,6 +571,9 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                   ),
                   h3: ({ node, ...props }) => (
                     <h3 className="text-lg font-bold mt-4 mb-2 text-white" {...props} />
+                  ),
+                  h4: ({ node, ...props }) => (
+                    <h4 className="text-base font-bold mt-3 mb-2 text-white" {...props} />
                   ),
                   p: ({ node, ...props }) => (
                     <p className="my-3 text-white/90 leading-relaxed" {...props} />
@@ -607,8 +588,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                     <li className="my-1 pl-1 text-white/90" {...props} />
                   ),
                   code: ({ node, inline, className, children, ...props }) => {
-                    const match = /language-(\w+)/.exec(className || '');
-                    const language = match ? match[1] : '';
+                    const match = /language-(\w+)/.exec(className || "");
+                    const language = match ? match[1] : "";
                     const id = `code-${message.messageId}`;
 
                     return inline ? (
@@ -627,7 +608,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                         )}
                         <div 
                           className="absolute right-2 top-2 cursor-pointer hover:bg-[#2d333b] p-1 rounded"
-                          onClick={() => copyToClipboard(String(children).replace(/\n$/, ''), id)}
+                          onClick={() => copyToClipboard(String(children).replace(/\n$/, ""), id)}
                         >
                           {copyStatus[id] ? (
                             <LuCopyCheck className="w-4 h-4 text-white/60" />
@@ -639,7 +620,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                           className="bg-[#1e1e1e] text-white/90 p-4 font-mono text-sm overflow-x-auto"
                           {...props}
                         >
-                          <code className={language ? `language-${language}` : ''}>
+                          <code className={language ? `language-${language}` : ""}>
                             {children}
                           </code>
                         </pre>
@@ -691,14 +672,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                 {messageContent}
               </ReactMarkdown>
               
-              {/* Display image if URL is present */}
               {imageUrl && (
                 <div className="mt-4">
                   <ImageWithLoading src={imageUrl} alt="Generated image" />
                 </div>
               )}
               
-              {/* Display sources if available */}
               {sources.length > 0 && !messageContent.includes("Generated image:") && (
                 <div className="mt-4 pt-3 border-t border-white/10">
                   <div 
@@ -711,7 +690,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                     Sources: <span className="text-xs ml-1">({sources.length})</span>
                     <svg 
                       xmlns="http://www.w3.org/2000/svg" 
-                      className={`h-4 w-4 transition-transform ${expandedSources[message.messageId] ? 'rotate-180' : ''}`} 
+                      className={`h-4 w-4 transition-transform ${expandedSources[message.messageId] ? "rotate-180" : ""}`} 
                       fill="none" 
                       viewBox="0 0 24 24" 
                       stroke="currentColor"
@@ -722,7 +701,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                   {expandedSources[message.messageId] && (
                     <div className="flex flex-wrap gap-2 mt-1">
                       {sources.map((source, i) => {
-                        // Extract domain name for favicon and display
                         const domainMatch = source.match(/^https?:\/\/(?:www\.)?([^\/]+)/);
                         const domain = domainMatch ? domainMatch[1] : "website";
                         
@@ -780,14 +758,10 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           key={i}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className={`flex items-start gap-3 ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}
+          className={`flex items-start gap-3 ${i % 2 === 0 ? "justify-end" : "justify-start"}`}
         >
           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] animate-pulse" />
-          <div className={`max-w-[70%] h-20 rounded-2xl animate-pulse ${
-            i % 2 === 0 
-              ? 'bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a]' 
-              : 'bg-[#1a1a1a]'
-          }`} />
+          <div className={`max-w-[70%] h-20 rounded-2xl animate-pulse ${i % 2 === 0 ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a]" : "bg-[#1a1a1a]"}`} />
           {i % 2 === 0 && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] animate-pulse" />}
         </motion.div>
       ))}
@@ -797,11 +771,10 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const createNewChat = () => {
     const newChat = {
       id: `temp_${Date.now()}`,
-      title: 'New Chat',
+      title: "New Chat",
       messages: []
     };
-    // Assuming setActiveChat is passed as a prop or available in context
-    if (typeof setActiveChat === 'function') setActiveChat(newChat);
+    if (typeof setActiveChat === "function") setActiveChat(newChat);
   };
 
   useEffect(() => {
@@ -815,7 +788,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
   const getUniqueMessages = () => {
     const seen = new Set();
-    return messages.filter(msg => {
+    return messages.filter((msg) => {
       const key = `${msg.role}-${msg.content}`;
       if (seen.has(key)) {
         console.log("Duplicate message filtered:", msg.content);
@@ -827,52 +800,45 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   };
 
   const ImageWithLoading = ({ src, alt }) => {
-    const [status, setStatus] = useState('loading');
+    const [status, setStatus] = useState("loading");
     const [retryCount, setRetryCount] = useState(0);
     const maxRetries = 5;
     const retryTimeoutRef = useRef(null);
     
-    // Force preload the image
     useEffect(() => {
       const preloadImage = () => {
-        setStatus('loading');
+        setStatus("loading");
         setRetryCount(0);
         
-        // Clear any existing timeout
         if (retryTimeoutRef.current) {
           clearTimeout(retryTimeoutRef.current);
         }
         
-        // Create a new Image object for preloading
         const img = new Image();
         
         img.onload = () => {
-          setStatus('success');
+          setStatus("success");
         };
         
         img.onerror = () => {
           if (retryCount < maxRetries) {
-            const delay = 1000 * Math.pow(1.5, retryCount); // Exponential backoff
+            const delay = 1000 * Math.pow(1.5, retryCount);
             console.log(`Image load failed. Retry ${retryCount + 1}/${maxRetries} in ${delay}ms`);
             
-            // Store the timeout reference so we can clear it if needed
             retryTimeoutRef.current = setTimeout(() => {
-              setRetryCount(prev => prev + 1);
-              // Try again with the same src by forcing a reload
+              setRetryCount((prev) => prev + 1);
               img.src = src + `?retry=${Date.now()}`;
             }, delay);
           } else {
-            setStatus('error');
+            setStatus("error");
           }
         };
         
-        // Set src last to start loading (with cache buster to avoid browser cache)
         img.src = src + `?t=${Date.now()}`;
       };
       
       preloadImage();
       
-      // Cleanup function
       return () => {
         if (retryTimeoutRef.current) {
           clearTimeout(retryTimeoutRef.current);
@@ -882,23 +848,23 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     
     const handleRetry = () => {
       setRetryCount(0);
-      setStatus('loading');
+      setStatus("loading");
     };
     
     return (
       <div className="relative mt-3">
-        {status === 'loading' && (
+        {status === "loading" && (
           <div className="flex items-center justify-center bg-gray-800 rounded-lg min-h-[200px] w-full">
             <div className="flex flex-col items-center">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#cc2b5e]"></div>
               <div className="text-sm text-gray-400 mt-2">
-                Loading image{retryCount > 0 ? ` (retry ${retryCount + 1}/${maxRetries})` : '...'}
+                Loading image{retryCount > 0 ? ` (retry ${retryCount + 1}/${maxRetries})` : "..."}
               </div>
             </div>
           </div>
         )}
         
-        {status === 'error' && (
+        {status === "error" && (
           <div className="flex items-center justify-center bg-gray-800 rounded-lg min-h-[200px] w-full">
             <div className="text-center text-gray-400">
               <div className="text-red-400 text-2xl mb-2">⚠️</div>
@@ -913,7 +879,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           </div>
         )}
         
-        {status === 'success' && (
+        {status === "success" && (
           <img 
             src={src}
             alt={alt}
@@ -925,9 +891,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   };
 
   return (
-    <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] overflow-hidden ${
-      isOpen ? 'lg:ml-0' : 'lg:ml-0'
-    } transition-all duration-300`}>
+    <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] overflow-hidden ${isOpen ? "lg:ml-0" : "lg:ml-0"} transition-all duration-300`}>
       <div className="sticky top-0 z-20 px-3 sm:px-4 py-3 sm:py-4 flex items-center bg-[#0a0a0a]/80 backdrop-blur-lg h-[60px]">
         <div className="flex items-center justify-between w-full">
           <div className="w-full flex items-center justify-center lg:justify-start gap-2 sm:gap-3">
@@ -952,9 +916,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           <LoadingSkeleton />
         ) : (
           <>
-            {getUniqueMessages().map((message, index) => (
-              renderMessage(message, index)
-            ))}
+            {getUniqueMessages().map((message, index) => renderMessage(message, index))}
             
             {isLoading && (
               <motion.div
@@ -987,7 +949,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         <div ref={messagesEndRef} />
       </div>
 
-      <div className={`w-full ${isFirstMessage ? 'absolute top-1/2 -translate-y-1/2' : 'relative'}`}>
+      <div className={`w-full ${isFirstMessage ? "absolute top-1/2 -translate-y-1/2" : "relative"}`}>
         {isFirstMessage && (
           <div className="px-4 py-6">
             <div className="text-center mb-6">
@@ -998,13 +960,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               {predefinedPrompts.map((item) => (
                 <motion.div
                   key={item.id}
-                  className="group relative bg-white/[0.05] backdrop-blur-xl border border-white/20 
-                    rounded-xl p-4 cursor-pointer hover:bg-white/[0.08] transition-all duration-300 
-                    shadow-[0_0_20px_rgba(204,43,94,0.3)] hover:shadow-[0_0_30px_rgba(204,43,94,0.5)] 
-                    before:absolute before:inset-0 before:bg-gradient-to-r before:from-[#cc2b5e]/30 
-                    before:to-[#753a88]/30 before:opacity-0 before:transition-opacity before:duration-300 
-                    hover:before:opacity-100 before:rounded-xl overflow-hidden
-                    hover:border-white/40"
+                  className="group relative bg-white/[0.05] backdrop-blur-xl border border-white/20 rounded-xl p-4 cursor-pointer hover:bg-white/[0.08] transition-all duration-300 shadow-[0_0_20px_rgba(204,43,94,0.3)] hover:shadow-[0_0_30px_rgba(204,43,94,0.5)] before:absolute before:inset-0 before:bg-gradient-to-r before:from-[#cc2b5e]/30 before:to-[#753a88]/30 before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-100 before:rounded-xl overflow-hidden hover:border-white/40"
                   onClick={() => handlePromptClick(item.prompt)}
                   whileHover={{ 
                     scale: 1.03,
@@ -1013,23 +969,14 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                   whileTap={{ scale: 0.98 }}
                 >
                   <motion.div 
-                    className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 
-                      group-hover:opacity-20 transition-opacity duration-300 blur-2xl"
+                    className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 group-hover:opacity-20 transition-opacity duration-300 blur-2xl"
                     initial={{ opacity: 0 }}
-                    whileHover={{ 
-                      opacity: 0.25,
-                      transition: { duration: 0.3 }
-                    }}
+                    whileHover={{ opacity: 0.25, transition: { duration: 0.3 } }}
                   />
                   <motion.div 
-                    className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 
-                      group-hover:opacity-30 transition-all duration-500 blur-md"
+                    className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 group-hover:opacity-30 transition-all duration-500 blur-md"
                     initial={{ opacity: 0, scale: 0.95 }}
-                    whileHover={{ 
-                      opacity: 0.3,
-                      scale: 1.05,
-                      transition: { duration: 0.5 }
-                    }}
+                    whileHover={{ opacity: 0.3, scale: 1.05, transition: { duration: 0.5 } }}
                   />
                   <div className="relative z-10">
                     <h3 className="text-white/90 font-medium text-sm mb-2">
@@ -1039,9 +986,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                       {item.prompt}
                     </p>
                   </div>
-                  <div className="absolute -inset-1 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] 
-                    rounded-xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 blur-xl -z-10"
-                  />
+                  <div className="absolute -inset-1 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] rounded-xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 blur-xl -z-10" />
                 </motion.div>
               ))}
             </div>

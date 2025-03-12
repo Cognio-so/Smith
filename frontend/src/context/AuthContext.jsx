@@ -1,16 +1,15 @@
-import { createContext, useState, useContext, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { createContext, useState, useContext, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-const AuthContext = createContext()
+const AuthContext = createContext();
 
-const API_URL = 'https://smith-backend-psi.vercel.app'
+const API_URL = 'https://smith-backend-psi.vercel.app';
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-  // Updated fetch configuration
   const fetchWithCredentials = async (endpoint, options = {}) => {
     const defaultOptions = {
       credentials: 'include',
@@ -19,109 +18,114 @@ export const AuthProvider = ({ children }) => {
         'Content-Type': 'application/json',
       },
       ...options
-    }
+    };
 
     try {
-      const response = await fetch(`${API_URL}${endpoint}`, defaultOptions)
+      const response = await fetch(`${API_URL}${endpoint}`, defaultOptions);
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return response
+      return response;
     } catch (error) {
-      console.error('Fetch error:', error)
-      throw error
+      console.error('Fetch error:', error);
+      throw error;
     }
-  }
+  };
 
-  // Check auth status on mount and when user changes
   useEffect(() => {
     const verifyUser = async () => {
       try {
-        const response = await fetchWithCredentials('/auth/check-auth')
-        const data = await response.json()
-        setUser(data)
-      } catch (error) {
-        console.error("Auth verification failed:", error)
-        setUser(null)
-      } finally {
-        setLoading(false)
-      }
-    }
+        // Check for token in URL (Google redirect fallback)
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const error = urlParams.get('error');
 
-    verifyUser()
-    
-    // Check for Google auth redirect
-    const checkGoogleAuthRedirect = () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const error = urlParams.get('error');
-      
-      if (error === 'auth_failed') {
-        console.error('Google authentication failed');
+        if (error === 'auth_failed') {
+          console.error('Google authentication failed');
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
+        if (token) {
+          // Set cookie manually if received via URL
+          document.cookie = `jwt=${token}; path=/; max-age=${30 * 24 * 60 * 60}; ${process.env.NODE_ENV === "production" ? 'secure; samesite=none' : 'samesite=lax'}`;
+          // Clear URL params to prevent reuse
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        const response = await fetchWithCredentials('/auth/check-auth');
+        const data = await response.json();
+        setUser(data);
+      } catch (error) {
+        console.error("Auth verification failed:", error);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
-    
-    checkGoogleAuthRedirect();
-  }, [])
+    };
+
+    verifyUser();
+  }, []);
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetchWithCredentials('/auth/check-auth')
-      const data = await response.json()
-      setUser(data)
+      const response = await fetchWithCredentials('/auth/check-auth');
+      const data = await response.json();
+      setUser(data);
     } catch (error) {
-      console.error("Auth check failed:", error)
-      setUser(null)
+      console.error("Auth check failed:", error);
+      setUser(null);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const login = async (email, password) => {
     try {
       const response = await fetchWithCredentials('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password })
-      })
+      });
       
-      const data = await response.json()
-      setUser(data)
-      navigate("/dashboard")
-      return data
+      const data = await response.json();
+      setUser(data);
+      navigate("/dashboard");
+      return data;
     } catch (error) {
-      throw new Error(error.message || 'Login failed')
+      throw new Error(error.message || 'Login failed');
     }
-  }
+  };
 
   const signup = async (name, email, password) => {
     try {
       const response = await fetchWithCredentials('/auth/signup', {
         method: 'POST',
         body: JSON.stringify({ name, email, password })
-      })
+      });
       
-      const data = await response.json()
-      setUser(data)
-      navigate("/dashboard")
-      return data
+      const data = await response.json();
+      setUser(data);
+      navigate("/dashboard");
+      return data;
     } catch (error) {
-      throw new Error(error.message || 'Signup failed')
+      throw new Error(error.message || 'Signup failed');
     }
-  }
+  };
 
   const logout = async () => {
     try {
-      await fetchWithCredentials('/auth/logout', { method: 'POST' })
-      setUser(null)
-      navigate("/login")
+      await fetchWithCredentials('/auth/logout', { method: 'POST' });
+      setUser(null);
+      navigate("/login");
     } catch (error) {
-      console.error("Logout failed:", error)
+      console.error("Logout failed:", error);
     }
-  }
+  };
   
-  // Google Sign-In Method (this is correct)
   const signInWithGoogle = () => {
     window.location.href = `${API_URL}/auth/google`;
-  }
+  };
 
   return (
     <AuthContext.Provider
@@ -137,13 +141,13 @@ export const AuthProvider = ({ children }) => {
     >
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
 
 export const useAuth = () => {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-  return context
-} 
+  return context;
+};
