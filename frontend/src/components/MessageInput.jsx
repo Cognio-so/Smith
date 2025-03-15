@@ -11,6 +11,10 @@ import { startSpeechToTextStreaming } from '../utils/speechToTextStreaming';
 import { speakWithDeepgram } from '../utils/textToSpeech';
 import VoiceRecordingOverlay from './VoiceRecordingOverlay';
 import { RiRobot2Line } from "react-icons/ri";
+import { FaGlobe, FaLightbulb } from "react-icons/fa";
+import { CiGlobe } from "react-icons/ci";
+import { RiSparkling2Fill, RiVoiceprintFill } from "react-icons/ri";
+import { MdAttachFile } from "react-icons/md";
 
 function MessageInput({ onSendMessage, isLoading }) {
   const [message, setMessage] = useState("");
@@ -26,7 +30,6 @@ function MessageInput({ onSendMessage, isLoading }) {
   const stopRef = useRef(null);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
-  // Replace the models array with the correct Llama model ID
   const [models, setModels] = useState([
     { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
     { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
@@ -34,7 +37,6 @@ function MessageInput({ onSendMessage, isLoading }) {
     { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", cost: "Free" },
   ]);
 
-  // Update the default selected model if needed
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const processingTimeoutRef = useRef(null);
@@ -53,6 +55,8 @@ function MessageInput({ onSendMessage, isLoading }) {
   const speechTimeoutRef = useRef(null);
   const [useAgent, setUseAgent] = useState(false);
   const [useCognioAgent, setUseCognioAgent] = useState(false);
+  const [deepResearch, setDeepResearch] = useState(false);
+  const textareaRef = useRef(null);
 
   const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000' || 'https://python-backend-2-algohype.replit.app';
 
@@ -245,8 +249,8 @@ function MessageInput({ onSendMessage, isLoading }) {
           message: currentMessage,
           model: selectedModel,
           file_url: uploadedFile || "",
-          web_search_enabled: useCognioAgent ? true : false,
-          deep_research: false
+          web_search_enabled: useCognioAgent || useAgent,
+          deep_research: deepResearch
         }),
         signal: abortControllerRef.current.signal
       });
@@ -313,6 +317,12 @@ function MessageInput({ onSendMessage, isLoading }) {
         }
       }
   
+      // When the stream is complete, send a final non-streaming message to signal completion
+      if (currentRequestRef.current === requestId) {
+        // Final update when streaming is complete
+        onSendMessage(accumulatedResponse, "assistant", false); // false means streaming is complete
+      }
+  
     } catch (error) {
       if (error.name !== 'AbortError') {
         onSendMessage(`Error: ${error.message}`, "system");
@@ -366,7 +376,7 @@ function MessageInput({ onSendMessage, isLoading }) {
       case "claude-3-haiku-20240307":
         return <TbBrain className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
       default:
-        return <HiSparkles className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
+        return <RiSparkling2Fill className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
     }
   };
 
@@ -398,222 +408,164 @@ function MessageInput({ onSendMessage, isLoading }) {
     }
   }, [sessionId]);
 
-  const availableModels = [
-    {
-      name: "gpt-4o-mini",
-      label: "GPT-4o-mini",
-      description: "OpenAI's latest flagship model, optimized for speed.",
-      icon: <SiOpenai size={18} />,
-      cost: "$0.005/1K",
-    },
-    {
-      name: "gemini-1.5-flash",
-      label: "Gemini 1.5 Flash",
-      description: "Google's lightweight model, balanced for performance and cost.",
-      icon: <TbBrandGoogleFilled size={18} />,
-      cost: "$0.0005/1K",
-    },
-    {
-      name: "claude-3-haiku-20240307",
-      label: "Claude 3 Haiku",
-      description: "Anthropic's fastest and most cost-effective model.",
-      icon: <SiClarifai size={18} />,
-      cost: "$0.0003/1K",
-    },
-    {
-      name: "llama-3.3-70b-versatile",
-      label: "Llama 3.3 70B",
-      description: "Meta's open-source model, great for research and customization.",
-      icon: <TbBrain size={18} />,
-      cost: "$0.0002/1K",
-    }
-  ];
-
   return (
     <>
-      <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 w-full">
+      <div className="w-full max-w-[95%] xs:max-w-[90%] sm:max-w-2xl md:max-w-3xl mx-auto mb-4">
         <motion.form
           onSubmit={handleSubmit}
-          className={`group relative rounded-lg sm:rounded-xl md:rounded-2xl transition-all duration-300 w-full max-w-full sm:max-w-2xl md:max-w-3xl mx-auto 
-            ${isFocused 
-              ? 'bg-white/[0.05] shadow-[0_0_15px_rgba(204,43,94,0.3)] sm:shadow-[0_0_20px_rgba(204,43,94,0.3)]' 
-              : 'bg-white/[0.03]'
-            } backdrop-blur-xl border border-white/20`}
+          className="relative rounded-xl sm:rounded-2xl bg-white/[0.2] backdrop-blur-xl text-white px-2 sm:px-3 pt-4 sm:pt-5 pb-10 sm:pb-12 shadow-[0_0_20px_rgba(204,43,94,0.3)] hover:shadow-[0_0_30px_rgba(204,43,94,0.5)]"
         >
-          <motion.div 
-            className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 
-              group-hover:opacity-20 transition-opacity duration-300 blur-lg sm:blur-2xl rounded-lg sm:rounded-xl md:rounded-2xl"
-            initial={{ opacity: 0 }}
-            whileHover={{ 
-              opacity: 0.25,
-              transition: { duration: 0.3 }
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={(e) => {
+              setMessage(e.target.value);
+            }}
+            onInput={(e) => {
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            placeholder="Ask me anything..."
+            className="relative w-full pl-1 sm:pl-2 pr-4 sm:pr-6 py-1 sm:py-2 -mt-1 bg-transparent outline-none text-sm sm:text-base resize-none overflow-hidden min-h-[36px] placeholder-white/40"
+            rows={1}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
             }}
           />
-
-          <div className="relative z-10">
-            <div className="relative flex flex-wrap sm:flex-nowrap items-center gap-1 sm:gap-2 p-1 sm:p-2 md:p-3">
-              <motion.button
+          
+          <div className="absolute left-1.5 sm:left-2 md:left-4 bottom-2.5 sm:bottom-3 md:bottom-3.5 flex items-center space-x-1.5 sm:space-x-2 md:space-x-4">
+            <div className="relative group">
+              <button 
                 type="button"
                 onClick={() => setShowModelSelector(!showModelSelector)}
-                className="flex items-center gap-1 sm:gap-2 p-1 sm:p-1.5 md:p-2 rounded-lg sm:rounded-xl hover:bg-white/10 transition-all duration-200"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className={`text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full ${
+                  showModelSelector ? 'bg-white/10' : ''
+                }`}
               >
-                {getModelIcon(selectedModel)}
-                <span className="text-[9px] sm:text-[10px] md:text-xs text-[#cc2b5e]">
-                  {models.find(m => m.id === selectedModel)?.name}
-                </span>
-              </motion.button>
-
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(e);
+                <RiSparkling2Fill/>
+              </button>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                Select AI Model
+              </div>
+            </div>
+            
+            <div className="relative group">
+              <button 
+                type="button"
+                onClick={() => {
+                  setUseCognioAgent(!useCognioAgent);
+                  if (!useCognioAgent) {
+                    setUseAgent(false);
                   }
                 }}
-                placeholder="Message Audio-Smith..."
-                className="w-full sm:w-auto flex-1 bg-transparent px-2 sm:px-3 md:px-4 py-1 sm:py-2 md:py-3 text-xs sm:text-sm md:text-base text-white/90 placeholder:text-white/40 focus:outline-none rounded-lg sm:rounded-xl transition-all duration-200 focus:bg-white/5 resize-none overflow-hidden min-h-[36px] sm:min-h-[44px] max-h-[150px] sm:max-h-[200px]"
-                rows={1}
-                style={{ height: 'auto' }}
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = e.target.scrollHeight + 'px';
+                className={`text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full ${
+                  useCognioAgent ? 'bg-white/10' : ''
+                }`}
+              >
+                <CiGlobe />
+              </button>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                Cognio Agent
+              </div>
+            </div>
+            
+            <div className="relative group">
+              <button 
+                type="button"
+                onClick={() => {
+                  setUseAgent(!useAgent);
+                  if (!useAgent) {
+                    setUseCognioAgent(false);
+                  }
                 }}
-              />
-
-              <div className="flex items-center gap-1 sm:gap-2">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.txt,.mp3,.wav,.mp4"
-                />
-                <motion.button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-1 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/10 transition-all duration-200"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <IoMdAttach className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e] hover:text-[#753a88] transition-colors duration-200" />
-                </motion.button>
-
-                <motion.button
-                  type="button"
-                  onClick={() => setUseAgent(!useAgent)}
-                  className={`p-1 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ${
-                    useAgent ? 'bg-red-500/20 hover:bg-red-500/30' : 'hover:bg-white/10'
-                  }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  title={useAgent ? "Using Agent (with web search)" : "Switch to Agent mode"}
-                >
-                  <RiRobot2Line className={`h-3 w-3 sm:h-4 sm:w-4 transition-colors duration-200 ${
-                    useAgent ? 'text-[#cc2b5e]' : 'text-[#cc2b5e] hover:text-[#753a88]'
-                  }`} />
-                </motion.button>
-
-                <motion.button
-                  type="button"
-                  onClick={() => {
-                    if (!useCognioAgent) {
-                      setUseAgent(false);
-                    }
-                    setUseCognioAgent(!useCognioAgent);
-                  }}
-                  className={`p-1 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ${
-                    useCognioAgent ? 'bg-purple-500/20 hover:bg-purple-500/30' : 'hover:bg-white/10'
-                  }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  title={useCognioAgent ? "Using Cognio Agent" : "Switch to Cognio Agent"}
-                >
-                  <HiSparkles className={`h-3 w-3 sm:h-4 sm:w-4 transition-colors duration-200 ${
-                    useCognioAgent ? 'text-purple-400' : 'text-[#cc2b5e] hover:text-[#753a88]'
-                  }`} />
-                </motion.button>
-
-                <motion.button
-                  type="button"
-                  onClick={handleVoiceInteraction}
-                  className={`p-1 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ${
-                    isRecording ? 'bg-red-500/20 hover:bg-red-500/30' : 'hover:bg-white/10'
-                  }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <FiMic className={`h-3 w-3 sm:h-4 sm:w-4 transition-colors duration-200 ${
-                    isRecording ? 'text-red-400' : 'text-[#cc2b5e] hover:text-[#753a88]'
-                  }`} />
-                </motion.button>
-
-                <motion.button
-                  type="submit"
-                  disabled={isLoading || !message.trim()}
-                  className={`p-1 sm:p-2 rounded-lg sm:rounded-xl transition-all duration-200 ${
-                    message.trim() ? 'bg-gradient-to-r from-[#cc2b5e] to-[#753a88] hover:opacity-90' : 'hover:bg-white/10'
-                  }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <FiSend className={`h-3 w-3 sm:h-4 sm:w-4 transition-colors duration-200 ${
-                    message.trim() ? 'text-white' : 'text-[#cc2b5e] hover:text-[#753a88]'
-                  }`} />
-                </motion.button>
+                className={`text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full ${
+                  useAgent ? 'bg-white/10' : ''
+                }`}
+              >
+                <FaLightbulb />
+              </button>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                Web Search Agent
+              </div>
+            </div>
+            
+            <div className="relative group">
+              <button 
+                type="button"
+                onClick={() => setDeepResearch(!deepResearch)}
+                className={`text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full ${
+                  deepResearch ? 'bg-white/10' : ''
+                }`}
+              >
+                <RiRobot2Line />
+              </button>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                Deep Research
               </div>
             </div>
           </div>
 
-          {isLoading && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 sm:mb-2 flex justify-center">
-              <motion.div
-                className="px-2 sm:px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-[10px] sm:text-xs text-white/70"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                {useAgent ? "Agent is searching & thinking..." : "Mr-Smith is thinking..."}
-              </motion.div>
-            </div>
-          )}
-
-          <AnimatePresence>
-            {showModelSelector && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute bottom-full left-0 mb-1 sm:mb-2 w-[240px] xs:w-[260px] sm:w-[300px] md:w-[350px] bg-black rounded-lg sm:rounded-xl p-1 sm:p-1.5 border border-white/10 z-50"
-              >
-                <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
-                  {models.map((model) => (
-                    <button
-                      key={model.id}
-                      onClick={() => {
-                        setSelectedModel(model.id);
-                        setShowModelSelector(false);
-                      }}
-                      className={`p-1 sm:p-1.5 rounded-lg text-white/80 hover:bg-white/10 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 ${
-                        selectedModel === model.id ? 'bg-white/30' : ''
-                      }`}
-                    >
-                      {getModelIcon(model.id)}
-                      <span className="text-center text-[7px] xs:text-[8px] sm:text-[9px] md:text-[10px] leading-tight">
-                        {model.name}
-                      </span>
-                      <span className="text-[7px] xs:text-[8px] opacity-60">{model.cost}</span>
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div className="absolute right-1.5 sm:right-2 md:right-4 bottom-2.5 sm:bottom-3 md:bottom-3.5 flex items-center space-x-1.5 sm:space-x-2 md:space-x-4">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              className="hidden"
+              accept=".pdf,.doc,.docx,.txt,.mp3,.wav,.mp4"
+            />
+            <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full"
+            >
+              <MdAttachFile />
+            </button>
+            <button 
+              type="button"
+              onClick={handleVoiceInteraction}
+              className={`text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full ${
+                isRecording ? 'bg-white/10' : ''
+              }`}
+            >
+              <RiVoiceprintFill />
+            </button>
+          </div>
         </motion.form>
+
+        <AnimatePresence>
+          {showModelSelector && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute left-4 sm:left-8 bottom-16 sm:bottom-20 w-[240px] xs:w-[260px] sm:w-[300px] md:w-[350px] bg-black/80 backdrop-blur-sm rounded-lg sm:rounded-xl p-1 sm:p-1.5 border border-white/10 z-50"
+            >
+              <div className="grid grid-cols-2 gap-1 sm:gap-1.5">
+                {models.map((model) => (
+                  <button
+                    key={model.id}
+                    onClick={() => {
+                      setSelectedModel(model.id);
+                      setShowModelSelector(false);
+                    }}
+                    className={`p-1 sm:p-1.5 rounded-lg text-white/80 hover:bg-white/10 transition-all duration-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 ${
+                      selectedModel === model.id ? 'bg-white/30' : ''
+                    }`}
+                  >
+                    {getModelIcon(model.id)}
+                    <span className="text-center text-[7px] xs:text-[8px] sm:text-[9px] md:text-[10px] leading-tight">
+                      {model.name}
+                    </span>
+                    <span className="text-[7px] xs:text-[8px] opacity-60">{model.cost}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {isRecording && (
