@@ -2,11 +2,11 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import { useState, useEffect, createContext } from 'react'
 import SignupPage from './pages/SignupPage'
 import LoginPage from './pages/LoginPage'
-import HomePage from './pages/Homepage'
 import LoadingSpinner from './components/LoadingSpinner'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Dashboard from './pages/Dashboard'
 import SettingPage from './components/SettingsPage'
+import HomePage from './pages/Homepage'
 
 // Create Theme Context
 export const ThemeContext = createContext();

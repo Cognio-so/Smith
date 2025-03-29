@@ -1,10 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { FiMic, FiSend } from "react-icons/fi";
-import { HiSparkles } from "react-icons/hi";
-import { IoMdAttach } from "react-icons/io";
-import { SiOpenai } from "react-icons/si";
-import { TbBrandGoogleFilled } from "react-icons/tb";
-import { SiClarifai } from "react-icons/si";
 import { TbBrain } from "react-icons/tb";
 import { motion, AnimatePresence } from "framer-motion";
 import { startSpeechToTextStreaming } from '../utils/speechToTextStreaming';
@@ -15,12 +9,13 @@ import { FaGlobe, FaLightbulb } from "react-icons/fa";
 import { CiGlobe } from "react-icons/ci";
 import { RiSparkling2Fill, RiVoiceprintFill } from "react-icons/ri";
 import { MdAttachFile } from "react-icons/md";
+import { SiGoogle, SiOpenai, SiMeta, SiClaude } from 'react-icons/si'
+
 
 function MessageInput({ onSendMessage, isLoading }) {
   const [message, setMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [overlayMessages, setOverlayMessages] = useState([]);
-  const [isFocused, setIsFocused] = useState(false);
   const socketRef = useRef(null);
   const recorderRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,17 +26,15 @@ function MessageInput({ onSendMessage, isLoading }) {
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
   const [models, setModels] = useState([
-    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap" },
-    { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low" },
-    { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap" },
-    { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", cost: "Free" },
+    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", cost: "Free/Cheap", icon: SiGoogle },
+    { id: "gpt-4o-mini", name: "GPT-4o-mini", cost: "Low", icon: SiOpenai },
+    { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", cost: "Free/Cheap", icon: SiClaude },
+    { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", cost: "Free", icon: SiMeta },
   ]);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const processingTimeoutRef = useRef(null);
-  const [error, setError] = useState('');
-  const [response, setResponse] = useState('');
   const [sessionId, setSessionId] = useState(() => {
     const existingId = localStorage.getItem('chatSessionId');
     if (existingId) return existingId;
@@ -54,11 +47,12 @@ function MessageInput({ onSendMessage, isLoading }) {
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const speechTimeoutRef = useRef(null);
   const [useAgent, setUseAgent] = useState(false);
-  const [useCognioAgent, setUseCognioAgent] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
   const textareaRef = useRef(null);
+  const [threadId, setThreadId] = useState(null);
+  const [useCognioAgent, setUseCognioAgent] = useState(false);
 
-  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000' || 'https://python-backend-algohype.replit.app';
+  const PYTHON_API_URL = import.meta.env.VITE_PYTHON_API_URL || 'http://localhost:8000';
 
   const cancelCurrentRequest = () => {
     if (abortControllerRef.current) {
@@ -129,17 +123,28 @@ function MessageInput({ onSendMessage, isLoading }) {
               currentRequestRef.current = Date.now();
               const currentRequest = currentRequestRef.current;
 
-              const response = await fetch(`${PYTHON_API_URL}/voice-chat`, {
+              // Format messages for API using the format main.py expects
+              const messages = [
+                { role: "user", content: data.content }
+              ];
+
+              const endpoint = useAgent 
+                ? `${PYTHON_API_URL}/api/react-search` 
+                : `${PYTHON_API_URL}/api/chat`;
+
+              const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'X-Session-ID': sessionId,
-                  'X-Request-ID': currentRequest.toString()
                 },
                 body: JSON.stringify({
-                  message: data.content,
+                  messages: messages,
                   model: selectedModel,
-                  language: data.language || 'en-US'
+                  thread_id: threadId,
+                  file_url: uploadedFile || null,
+                  use_agent: useAgent,
+                  deep_research: deepResearch,
+                  stream: false
                 }),
                 signal: abortControllerRef.current.signal
               });
@@ -151,13 +156,19 @@ function MessageInput({ onSendMessage, isLoading }) {
               const responseData = await response.json();
 
               if (currentRequestRef.current === currentRequest) {
-                setOverlayMessages(prev => [...prev, { type: 'assistant', content: responseData.response }]);
-                onSendMessage(responseData.response, "assistant");
+                // Update thread ID for future interactions
+                if (responseData.thread_id) {
+                  setThreadId(responseData.thread_id);
+                }
+                
+                const assistantContent = responseData.message?.content || "No response content";
+                setOverlayMessages(prev => [...prev, { type: 'assistant', content: assistantContent }]);
+                onSendMessage(assistantContent, "assistant");
 
                 if (!isMuted) {
                   setIsAISpeaking(true);
                   try {
-                    await speakWithDeepgram(responseData.response);
+                    await speakWithDeepgram(assistantContent);
                   } catch (error) {
                     console.error('Speech synthesis error:', error);
                   } finally {
@@ -168,6 +179,7 @@ function MessageInput({ onSendMessage, isLoading }) {
             } catch (error) {
               console.error('❌ API request error:', error);
               if (error.name === 'AbortError') {
+                // User canceled
               } else {
                 onSendMessage(`Error: ${error.message}`, "system");
               }
@@ -226,31 +238,28 @@ function MessageInput({ onSendMessage, isLoading }) {
   
       stopSpeaking();
   
-      const token = localStorage.getItem('token');
+      // Format message for the API in the structure main.py expects
+      const formattedMessages = [
+        { role: "user", content: currentMessage }
+      ];
       
-      let endpoint = `/chat`;
-      
-      if (useAgent) {
-        endpoint = `/agent-chat`;
-      } else if (useCognioAgent) {
-        endpoint = `/cognio-agent`;
-      }
-      
-      const response = await fetch(`${PYTHON_API_URL}${endpoint}`, {
+      const endpoint = useAgent 
+        ? `${PYTHON_API_URL}/api/react-search` 
+        : `${PYTHON_API_URL}/api/chat`;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'X-Session-ID': sessionId,
-          'X-Request-ID': requestId.toString(),
-          'X-Cancel-Previous': 'true'
         },
         body: JSON.stringify({
-          message: currentMessage,
+          messages: formattedMessages,
           model: selectedModel,
-          file_url: uploadedFile || "",
-          web_search_enabled: useCognioAgent || useAgent,
-          deep_research: deepResearch
+          thread_id: threadId,
+          file_url: uploadedFile || null,
+          use_agent: useAgent,
+          deep_research: deepResearch,
+          stream: true
         }),
         signal: abortControllerRef.current.signal
       });
@@ -266,46 +275,55 @@ function MessageInput({ onSendMessage, isLoading }) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
-            break; // No final onSendMessage call here
+            break;
           }
   
           const chunkText = new TextDecoder().decode(value);
           const lines = chunkText.split('\n').filter(line => line.trim());
   
           for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const jsonData = line.substring(6);
-              if (jsonData === "[DONE]") {
-                // Stream complete, do nothing extra
-              } else {
-                try {
-                  let parsedData;
-                  try {
-                    parsedData = JSON.parse(jsonData);
-                  } catch {
-                    parsedData = jsonData; // Fallback to raw string
-                  }
-
-                  let contentPiece;
-                  if (typeof parsedData === 'object' && parsedData !== null) {
-                    contentPiece = parsedData.response || 
-                                 parsedData.text || 
-                                 parsedData.content || 
-                                 JSON.stringify(parsedData);
-                  } else {
-                    contentPiece = String(parsedData);
-                  }
-
-                  accumulatedResponse += contentPiece;
-
-                  if (currentRequestRef.current === requestId) {
-                    onSendMessage(accumulatedResponse, "assistant", true); // Send each chunk for real-time typing
-                  }
-                } catch (parseError) {
-                  console.error("Error parsing JSON:", parseError);
-                  accumulatedResponse += `[Parse Error: ${parseError.message}]`;
+            try {
+              const jsonData = JSON.parse(line);
+              
+              // Handle different message types from the streaming endpoint
+              if (jsonData.type === "status") {
+                // Status updates - can be shown in UI if needed
+                console.log("Status:", jsonData.status);
+              } 
+              else if (jsonData.type === "chunk") {
+                // Send each chunk immediately without accumulating
+                if (currentRequestRef.current === requestId) {
+                  onSendMessage(jsonData.chunk || "", "assistant", true, true);
                 }
               }
+              else if (jsonData.type === "result") {
+                // Final result with complete message
+                if (jsonData.message?.content) {
+                  accumulatedResponse = jsonData.message.content;
+                  
+                  if (currentRequestRef.current === requestId) {
+                    onSendMessage(accumulatedResponse, "assistant", false);
+                  }
+                }
+                
+                // Store thread_id for future requests
+                if (jsonData.thread_id) {
+                  setThreadId(jsonData.thread_id);
+                }
+              }
+              else if (jsonData.type === "done") {
+                // Stream is complete
+                if (currentRequestRef.current === requestId) {
+                  onSendMessage(accumulatedResponse, "assistant", false);
+                }
+                
+                // Store thread_id for future requests
+                if (jsonData.thread_id) {
+                  setThreadId(jsonData.thread_id);
+                }
+              }
+            } catch (parseError) {
+              console.error("Error parsing streaming response:", parseError, line);
             }
           }
         }
@@ -315,12 +333,6 @@ function MessageInput({ onSendMessage, isLoading }) {
         } else {
           throw error;
         }
-      }
-  
-      // When the stream is complete, send a final non-streaming message to signal completion
-      if (currentRequestRef.current === requestId) {
-        // Final update when streaming is complete
-        onSendMessage(accumulatedResponse, "assistant", false); // false means streaming is complete
       }
   
     } catch (error) {
@@ -343,13 +355,9 @@ function MessageInput({ onSendMessage, isLoading }) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const token = localStorage.getItem('token');
-      const response = await fetch('https://vercel.com/algo-hype-analytics/smith-backend/api/upload', {
+      // Update to use the endpoint from main.py
+      const response = await fetch(`${PYTHON_API_URL}/api/upload`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        },
         body: formData
       });
 
@@ -358,7 +366,7 @@ function MessageInput({ onSendMessage, isLoading }) {
       }
 
       const data = await response.json();
-      setUploadedFile(data.fileUrl);
+      setUploadedFile(data.file_path);
       
       onSendMessage(`Uploaded file: ${file.name}`, "user");
     } catch (error) {
@@ -368,13 +376,18 @@ function MessageInput({ onSendMessage, isLoading }) {
   };
 
   const getModelIcon = (modelId) => {
-    switch (modelId) {
-      case "gemini-1.5-flash":
+    const model = models.find(m => m.id === modelId);
+    const iconType = model?.icon || "default";
+    
+    switch (iconType) {
+      case "google":
         return <TbBrandGoogleFilled className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
-      case "gpt-4o-mini":
+      case "openai":
         return <SiOpenai className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
-      case "claude-3-haiku-20240307":
+      case "anthropic":
         return <TbBrain className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
+      case "groq":
+        return <RiSparkling2Fill className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
       default:
         return <RiSparkling2Fill className="h-3 w-3 sm:h-4 sm:w-4 text-[#cc2b5e]" />;
     }
@@ -456,19 +469,24 @@ function MessageInput({ onSendMessage, isLoading }) {
               <button 
                 type="button"
                 onClick={() => {
-                  setUseCognioAgent(!useCognioAgent);
-                  if (!useCognioAgent) {
+                  if (useCognioAgent) {
+                    setUseCognioAgent(false);
+                  } else {
+                    // Turn off other features when enabling AI agent
+                    setUseCognioAgent(true);
                     setUseAgent(false);
+                    setDeepResearch(false);
                   }
                 }}
                 className={`text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full ${
                   useCognioAgent ? 'bg-white/10' : ''
-                }`}
+                } ${useAgent ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={useAgent}
               >
-                <CiGlobe />
+                <FaLightbulb />
               </button>
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                Cognio Agent
+                AI Agent
               </div>
             </div>
             
@@ -476,34 +494,24 @@ function MessageInput({ onSendMessage, isLoading }) {
               <button 
                 type="button"
                 onClick={() => {
-                  setUseAgent(!useAgent);
-                  if (!useAgent) {
+                  if (useAgent) {
+                    setUseAgent(false);
+                  } else {
+                    // Turn off other features when enabling web search
+                    setUseAgent(true);
                     setUseCognioAgent(false);
+                    setDeepResearch(false);
                   }
                 }}
                 className={`text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full ${
                   useAgent ? 'bg-white/10' : ''
-                }`}
+                } ${useCognioAgent ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={useCognioAgent}
               >
-                <FaLightbulb />
+                <CiGlobe />
               </button>
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                Web Search Agent
-              </div>
-            </div>
-            
-            <div className="relative group">
-              <button 
-                type="button"
-                onClick={() => setDeepResearch(!deepResearch)}
-                className={`text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full ${
-                  deepResearch ? 'bg-white/10' : ''
-                }`}
-              >
-                <RiRobot2Line />
-              </button>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                Deep Research
+                Web Search
               </div>
             </div>
           </div>
@@ -522,15 +530,6 @@ function MessageInput({ onSendMessage, isLoading }) {
               className="text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full"
             >
               <MdAttachFile />
-            </button>
-            <button 
-              type="button"
-              onClick={handleVoiceInteraction}
-              className={`text-[#cc2b5e] hover:text-[#bd194d] transition-all text-base sm:text-lg md:text-xl p-0.5 sm:p-1 hover:bg-white/10 rounded-full ${
-                isRecording ? 'bg-white/10' : ''
-              }`}
-            >
-              <RiVoiceprintFill />
             </button>
           </div>
         </motion.form>

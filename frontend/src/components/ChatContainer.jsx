@@ -311,7 +311,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     }
   }, [messages, onUpdateMessages]);
 
-  const addMessage = async (content, role, isStreaming = false) => {
+  const addMessage = async (content, role, isStreaming = false, isChunkOnly = false) => {
     const safeContent = typeof content === "string" 
       ? content 
       : (content && typeof content === "object" 
@@ -323,15 +323,11 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     let imageUrl = null;
     let processedContent = safeContent;
     
-    if (role === "assistant") {
-      console.log("Assistant response:", safeContent);
-      
+    if (role === "assistant" && !isChunkOnly) {
       if (safeContent.includes("Generated image:")) {
         const parts = safeContent.split("Generated image:");
         let textPart = parts[0].trim() || "Here's the generated image:";
         imageUrl = parts[1]?.trim();
-        
-        console.log("Extracted image URL:", imageUrl);
         
         if (!imageUrl || imageUrl === "") {
           processedContent = textPart + "\n\n(Image generation failed - no URL returned)";
@@ -343,13 +339,35 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
 
     setMessages((prevMessages) => {
       let updatedMessages;
-      if (isStreaming && prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === "assistant") {
-        updatedMessages = [...prevMessages];
-        updatedMessages[updatedMessages.length - 1] = {
-          ...updatedMessages[updatedMessages.length - 1],
-          content: processedContent,
-          ...(imageUrl && { imageUrl })
-        };
+      
+      if (isStreaming) {
+        if (prevMessages.length > 0 && prevMessages[prevMessages.length - 1].role === "assistant") {
+          updatedMessages = [...prevMessages];
+          
+          if (isChunkOnly) {
+            const lastMessage = updatedMessages[updatedMessages.length - 1];
+            updatedMessages[updatedMessages.length - 1] = {
+              ...lastMessage,
+              content: lastMessage.content + processedContent,
+              ...(imageUrl && { imageUrl })
+            };
+          } else {
+            updatedMessages[updatedMessages.length - 1] = {
+              ...updatedMessages[updatedMessages.length - 1],
+              content: processedContent,
+              ...(imageUrl && { imageUrl })
+            };
+          }
+        } else {
+          const newMessage = {
+            messageId: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            content: processedContent,
+            role,
+            timestamp: new Date().toISOString(),
+            ...(imageUrl && { imageUrl })
+          };
+          updatedMessages = [...prevMessages, newMessage];
+        }
       } else {
         const newMessage = {
           messageId: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -361,7 +379,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         updatedMessages = [...prevMessages, newMessage];
       }
 
-      if (role === "assistant") {
+      if (role === "assistant" && !isStreaming) {
         saveMessages(updatedMessages);
       }
       
@@ -371,7 +389,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     if (role === "user") {
       setIsFirstMessage(false);
       setIsLoading(true);
-    } else if (role === "assistant") {
+    } else if (role === "assistant" && !isStreaming) {
       setIsLoading(false);
     }
   };
@@ -416,7 +434,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
-              className="bg-[#343541] rounded-3xl px-4 py-2 inline-block max-w-[80%] shadow-sm"
+              className="bg-[#343541] rounded-xl px-4 pt-2 pb-1 inline-block max-w-[80%] shadow-sm text-white"
             >
               <MessageContentDisplay 
                 content={message.content} 
@@ -523,23 +541,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                 animate={{ opacity: 1 }}
                 className="flex justify-start w-full max-w-[95%] xs:max-w-[90%] sm:max-w-2xl md:max-w-3xl mx-auto"
               >
-                <div className="flex items-center space-x-2 px-4 py-3 rounded-xl bg-[#1a1a1a] border border-white/10 shadow-lg">
-                  <motion.span
-                    className="w-2 h-2 bg-[#cc2b5e] rounded-full shadow-md"
-                    animate={{ y: ["0%", "-50%", "0%"] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: 0 }}
-                  />
-                  <motion.span
-                    className="w-2 h-2 bg-[#cc2b5e] rounded-full shadow-md"
-                    animate={{ y: ["0%", "-50%", "0%"] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 }}
-                  />
-                  <motion.span
-                    className="w-2 h-2 bg-[#cc2b5e] rounded-full shadow-md"
-                    animate={{ y: ["0%", "-50%", "0%"] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: 0.4 }}
-                  />
-                </div>
+                <span>⚪</span>
               </motion.div>
             )}
           </>
@@ -559,7 +561,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               {predefinedPrompts.map((item) => (
                 <motion.div
                   key={item.id}
-                  className="group relative bg-white/[0.05] backdrop-blur-xl border border-white/20 rounded-xl p-4 cursor-pointer hover:bg-white/[0.08] transition-all duration-300 shadow-[0_0_20px_rgba(204,43,94,0.3)] hover:shadow-[0_0_30px_rgba(204,43,94,0.5)] before:absolute before:inset-0 before:bg-gradient-to-r before:from-[#cc2b5e]/30 before:to-[#753a88]/30 before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-100 before:rounded-xl overflow-hidden hover:border-white/40"
+                  className="group relative bg-white/[0.05] backdrop-blur-xl border border-white/20 rounded-xl p-4 cursor-pointer hover:bg-white/[0.08] transition-all duration-100 shadow-[0_0_20px_rgba(204,43,94,0.3)] hover:shadow-[0_0_30px_rgba(204,43,94,0.5)] "
                   onClick={() => handlePromptClick(item.prompt)}
                   whileHover={{ 
                     scale: 1.03,
@@ -568,12 +570,12 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                   whileTap={{ scale: 0.98 }}
                 >
                   <motion.div 
-                    className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 group-hover:opacity-20 transition-opacity duration-300 blur-2xl"
+                    className="absolute  opacity-0 group-hover:opacity-20 transition-opacity duration-300 blur-2xl"
                     initial={{ opacity: 0 }}
                     whileHover={{ opacity: 0.25, transition: { duration: 0.3 } }}
                   />
                   <motion.div 
-                    className="absolute inset-0 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] opacity-0 group-hover:opacity-30 transition-all duration-500 blur-md"
+                    className="absolute  opacity-0 group-hover:opacity-30 transition-all duration-500 blur-md"
                     initial={{ opacity: 0, scale: 0.95 }}
                     whileHover={{ opacity: 0.3, scale: 1.05, transition: { duration: 0.5 } }}
                   />
@@ -585,7 +587,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
                       {item.prompt}
                     </p>
                   </div>
-                  <div className="absolute -inset-1 bg-gradient-to-r from-[#cc2b5e] to-[#753a88] rounded-xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 blur-xl -z-10" />
+                  <div className="absolute - rounded-xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 blur-xl -z-10" />
                 </motion.div>
               ))}
             </div>
