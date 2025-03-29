@@ -49,7 +49,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
             return;
         }
 
-        const response = await fetch('https://smith-backend-psi.vercel.app/api/chats/save', {
+        const response = await fetch('http://localhost:5000/api/chats/save', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -111,7 +111,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
   const refreshChatHistory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://smith-backend-psi.vercel.app/api/chats/history/all', {
+      const response = await fetch('http://localhost:5000/api/chats/history/all', {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -147,7 +147,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://smith-backend-psi.vercel.app/api/chats/${chatId}`, {
+      const response = await fetch(`http://localhost:5000/api/chats/${chatId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

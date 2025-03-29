@@ -13,6 +13,14 @@ module.exports = {
       },
     },
     extend: {
+      scrollbar: {
+        'none': {
+          'scrollbar-width': 'none',
+          '&::-webkit-scrollbar': {
+            display: 'none',
+          },
+        },
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

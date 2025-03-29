@@ -444,3 +444,573 @@ tr:nth-child(even) {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
+html, body {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Apply to all scrollable containers */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Custom background gradient to match the image */
+.bg-custom-gradient {
+  background: #000000;  /* solid black background */
+  background-color: #000000;
+}
+
+/* Dark sections background */
+.bg-gray-800 {
+  background-color: #111111;
+}
+
+.bg-gray-900 {
+  background-color: #0a0a0a;
+}
+
+/* Text gradient for logo */
+.text-gradient {
+  background: linear-gradient(90deg, #ff66c4, #cb6ce6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: bold;
+}
+
+/* Glossy button styles */
+.glossy-button {
+  background: linear-gradient(145deg, #1a1a1a, #000000);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), 
+              inset 0 1px 1px rgba(255, 255, 255, 0.1),
+              inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.glossy-button:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: 0.5s;
+}
+
+.glossy-button:hover:before {
+  left: 100%;
+}
+
+.glossy-button-outline {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), 
+              inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.glossy-button-outline:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: 0.5s;
+}
+
+.glossy-button-outline:hover:before {
+  left: 100%;
+}
+
+/* Dark button background */
+.bg-dark-button {
+  background-color: rgba(10, 10, 15, 0.9);
+}
+
+/* Enhanced audio wave visualization with inspiration from Dribbble designs */
+.audio-wave-container {
+  height: 300px;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  perspective: 1000px;
+}
+
+.audio-wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23a855f7' fill-opacity='0.5' d='M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+  background-size: 1440px 320px;
+  animation: wave-animation 15s linear infinite;
+  opacity: 0.4;
+  filter: hue-rotate(0deg);
+  transform-style: preserve-3d;
+}
+
+/* Add multiple wave layers for depth effect */
+.audio-wave::before,
+.audio-wave::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: inherit;
+  background-size: inherit;
+  opacity: 0.6;
+}
+
+.audio-wave::before {
+  animation: wave-animation 12s linear infinite reverse;
+  filter: hue-rotate(45deg);
+  transform: translateZ(-20px) scale(0.8);
+}
+
+.audio-wave::after {
+  animation: wave-animation 18s linear infinite;
+  filter: hue-rotate(90deg);
+  transform: translateZ(-40px) scale(0.6);
+}
+
+@keyframes wave-animation {
+  0% {
+    transform: translateX(0) translateY(0) scale(1);
+    filter: hue-rotate(0deg);
+  }
+  33% {
+    transform: translateX(-480px) translateY(10px) scale(1.05);
+    filter: hue-rotate(120deg);
+  }
+  66% {
+    transform: translateX(-960px) translateY(-5px) scale(0.95);
+    filter: hue-rotate(240deg);
+  }
+  100% {
+    transform: translateX(-1440px) translateY(0) scale(1);
+    filter: hue-rotate(360deg);
+  }
+}
+
+/* Microphone styling - Enhanced 3D-like animation */
+.mic-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 1000px;
+}
+
+.mic-circle-outer {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(204,43,94,0.3), rgba(117,58,136,0.3));
+  box-shadow: 0 0 30px rgba(204,43,94,0.4);
+  animation: pulse-3d 3s infinite ease-in-out;
+}
+
+.mic-circle-middle {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(204,43,94,0.5), rgba(117,58,136,0.5));
+  box-shadow: 0 0 20px rgba(204,43,94,0.5);
+  animation: pulse-3d 3s infinite ease-in-out 0.5s;
+}
+
+.mic-circle-inner {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #cc2b5e, #753a88);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2;
+  box-shadow: 0 0 15px rgba(204,43,94,0.6),
+              inset 0 2px 3px rgba(255, 255, 255, 0.3),
+              inset 0 -2px 3px rgba(0, 0, 0, 0.4);
+  transform-style: preserve-3d;
+  animation: float 6s infinite ease-in-out;
+}
+
+/* Voice wave animation */
+.voice-wave {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: transparent;
+  z-index: 1;
+}
+
+.voice-wave::before,
+.voice-wave::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(204,43,94,0.5);
+  animation: ripple 2s linear infinite;
+}
+
+.voice-wave::after {
+  animation-delay: 0.5s;
+}
+
+@keyframes pulse-3d {
+  0% {
+    transform: scale3d(1, 1, 1) translateZ(0px);
+    opacity: 0.8;
+    filter: blur(0px);
+  }
+  50% {
+    transform: scale3d(1.2, 1.2, 1.2) translateZ(10px);
+    opacity: 0.5;
+    filter: blur(1px);
+  }
+  100% {
+    transform: scale3d(1, 1, 1) translateZ(0px);
+    opacity: 0.8;
+    filter: blur(0px);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotateX(0) rotateY(0);
+    box-shadow: 0 5px 15px rgba(204,43,94,0.6);
+  }
+  25% {
+    transform: translateY(-5px) rotateX(5deg) rotateY(5deg);
+    box-shadow: 0 10px 20px rgba(204,43,94,0.4);
+  }
+  50% {
+    transform: translateY(0) rotateX(0) rotateY(0);
+    box-shadow: 0 5px 15px rgba(204,43,94,0.6);
+  }
+  75% {
+    transform: translateY(-5px) rotateX(-5deg) rotateY(-5deg);
+    box-shadow: 0 10px 20px rgba(204,43,94,0.4);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Active voice animation */
+.mic-active .voice-wave::before,
+.mic-active .voice-wave::after {
+  border-color: rgba(204,43,94,0.8);
+  animation-duration: 1s;
+}
+
+.mic-active .mic-circle-outer,
+.mic-active .mic-circle-middle {
+  animation-duration: 1.5s;
+}
+
+.mic-active .mic-circle-inner {
+  background: linear-gradient(145deg, #ff3366, #9932cc);
+  box-shadow: 0 0 25px rgba(255,51,102,0.8),
+              inset 0 2px 3px rgba(255, 255, 255, 0.5),
+              inset 0 -2px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Darker gradient for sections */
+.section-gradient {
+  background: linear-gradient(to bottom, #000000, #0a0a0a);
+}
+
+/* Add these new utility classes */
+.from-primary {
+  --tw-gradient-from: #a855f7;
+}
+
+.to-secondary {
+  --tw-gradient-to: #7c3aed;
+}
+
+.text-primary {
+  color: #a855f7;
+}
+
+.bg-primary {
+  background-color: #a855f7;
+}
+
+/* Add backdrop blur utilities */
+.backdrop-blur-xl {
+  backdrop-filter: blur(24px);
+}
+
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+}
+
+/* Add hover effect utilities */
+.group:hover .group-hover\:opacity-100 {
+  opacity: 1;
+}
+
+.blur-xl {
+  filter: blur(24px);
+}
+
+/* Voice reactive animation inspired by Dribbble designs */
+.voice-reactive-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 200px;
+  pointer-events: none;
+}
+
+.voice-reactive-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(204,43,94,0.2) 0%, rgba(117,58,136,0.2) 50%, transparent 70%);
+  opacity: 0;
+  animation: pulse-reactive 2s ease-in-out infinite;
+}
+
+.voice-reactive-circle:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.voice-reactive-circle:nth-child(3) {
+  animation-delay: 1s;
+}
+
+.voice-reactive-bars {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.voice-reactive-bar {
+  width: 4px;
+  background: linear-gradient(to top, #cc2b5e, #753a88);
+  border-radius: 2px;
+  transform-origin: bottom;
+  opacity: 0.7;
+  box-shadow: 0 0 8px rgba(204,43,94,0.6);
+}
+
+@keyframes pulse-reactive {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+  }
+}
+
+/* Generate 20 voice bars with different heights and animations */
+.voice-reactive-bars::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, transparent 30%, rgba(0,0,0,0.8) 100%);
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(20px);
+}
+
+/* --- Table Styles --- */
+/* Global table styles (make sure these are consistent with component styles) */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0; /* Add some margin around tables */
+}
+
+th,
+td {
+  border: 1px solid rgba(255, 255, 255, 0.2); /* Light border for cells */
+  padding: 8px;
+  text-align: left;
+}
+
+th {
+  background-color: rgba(255, 255, 255, 0.1); /* Slightly lighter background for header */
+}
+
+/* Zebra striping for table rows (optional) */
+tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Ensure chat message text is white */
+.message-content {
+  color: white;
+}
+
+/* Make sure markdown prose is properly styled for dark theme */
+.prose-invert {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.prose-invert a {
+  color: #cc2b5e;
+}
+
+.prose-invert strong {
+  color: white;
+}
+
+.prose-invert h1, 
+.prose-invert h2, 
+.prose-invert h3, 
+.prose-invert h4, 
+.prose-invert h5, 
+.prose-invert h6 {
+  color: white;
+}
+
+/* Theme variables (at the end of the file) */
+:root {
+  --primary-color: #cc2b5e;
+  --secondary-color: #753a88;
+}
+
+.dark-theme {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --card-bg: rgba(0, 0, 0, 0.4);
+  --card-bg-hover: rgba(255, 255, 255, 0.05);
+  --input-bg: rgba(0, 0, 0, 0.4);
+  --sidebar-bg: #000000;
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --shadow-color: rgba(204, 43, 94, 0.3);
+  --hover-bg: rgba(255, 255, 255, 0.1);
+}
+
+.light-theme {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --border-color: #e0e0e0;
+  --card-bg: rgba(245, 245, 245, 0.8);
+  --card-bg-hover: rgba(0, 0, 0, 0.05);
+  --input-bg: rgba(240, 240, 240, 0.8);
+  --sidebar-bg: #ffffff;
+  --overlay-bg: rgba(0, 0, 0, 0.2);
+  --shadow-color: rgba(204, 43, 94, 0.1);
+  --hover-bg: rgba(0, 0, 0, 0.05);
+}
+
+/* Apply base theme styles */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Theme-specific utility classes */
+.theme-bg-primary {
+  background-color: var(--bg-primary);
+}
+
+.theme-bg-secondary {
+  background-color: var(--bg-secondary);
+}
+
+.theme-text-primary {
+  color: var(--text-primary);
+}
+
+.theme-text-secondary {
+  color: var(--text-secondary);
+}
+
+.theme-border {
+  border-color: var(--border-color);
+}
+
+.theme-card-bg {
+  background-color: var(--card-bg);
+}
+
+.theme-input-bg {
+  background-color: var(--input-bg);
+}
+
+.theme-hover:hover {
+  background-color: var(--hover-bg);
+}
+
+.theme-shadow {
+  box-shadow: 0 0 20px var(--shadow-color);
+}
+
+.theme-shadow-hover:hover {
+  box-shadow: 0 0 30px var(--shadow-color);
+}

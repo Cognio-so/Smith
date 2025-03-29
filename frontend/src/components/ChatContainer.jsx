@@ -1,16 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import MessageInput from "./MessageInput";
-import { motion, AnimatePresence } from "framer-motion";
-import { FiUser } from "react-icons/fi";
-import { BsChatLeftText } from "react-icons/bs";
-import { HiSparkles } from "react-icons/hi";
-import { speakWithDeepgram, stopSpeaking } from "../utils/textToSpeech";
+import { motion} from "framer-motion";
+import { stopSpeaking } from "../utils/textToSpeech";
 import { sendEmailWithPDF } from "../utils/emailService";
 import { useAuth } from "../context/AuthContext";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { FaRegCopy } from "react-icons/fa";
-import { LuCopyCheck } from "react-icons/lu";
+import MessageContentDisplay from "./MessageContentDisplay";
+import { MediaGenerationIndicator, MediaLoadingAnimation } from "./MediaComponents";
 
 function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onUpdateMessages }) {
   const { user } = useAuth();
@@ -27,6 +22,10 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const chatIdRef = useRef(null);
   const [copyStatus, setCopyStatus] = useState({});
   const [expandedSources, setExpandedSources] = useState({});
+  const [isGeneratingMedia, setIsGeneratingMedia] = useState(false);
+  const [generatingMediaType, setGeneratingMediaType] = useState("image");
+  const [isMediaLoading, setIsMediaLoading] = useState(false);
+  const [mediaLoadingType, setMediaLoadingType] = useState("image");
 
   useEffect(() => {
     if (!activeChat?.id) return;
@@ -45,7 +44,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       try {
         const token = localStorage.getItem("token");
         const response = await fetch(
-          `https://smith-backend-psi.vercel.app/api/chats/${activeChat.id}`,
+          `http://localhost:5000/api/chats/${activeChat.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -111,7 +110,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("https://smith-backend-psi.vercel.app/api/ai/generate-title", {
+      const response = await fetch("http://localhost:5000/api/ai/generate-title", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -159,8 +158,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       const isTemporaryChat = chatIdRef.current.startsWith("temp_");
       
       const endpoint = isTemporaryChat 
-        ? "https://smith-backend-psi.vercel.app/api/chats/save"
-        : `https://smith-backend-psi.vercel.app/api/chats/${chatIdRef.current}/update`;
+        ? "http://localhost:5000/api/chats/save"
+        : `http://localhost:5000/api/chats/${chatIdRef.current}/update`;
       
       const method = isTemporaryChat ? "POST" : "PUT";
 
@@ -237,7 +236,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     hidden: { 
       opacity: 0, 
       y: 20,
-      scale: 0.9,
+      scale: 0.95,
     },
     visible: { 
       opacity: 1, 
@@ -246,7 +245,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       transition: {
         type: "spring",
         stiffness: 200,
-        damping: 20
+        damping: 20,
+        clamp: true
       }
     }
   };
@@ -402,351 +402,41 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   };
 
   const renderMessage = (message, index) => {
-    let imageUrl = message.imageUrl || null;
-    let messageContent = message.content;
-    let sources = [];
-    
-    if (message.role === "assistant") {
-      messageContent = messageContent
-        // Ensure bullet points have a space after the asterisk
-        .replace(/\n\s*\*(?!\s)/g, "\n* ")
-        // Ensure numbered lists have a space after the number
-        .replace(/\n\s*(\d+)\.(?!\s)/g, "\n$1. ")
-        // Ensure headings have a space after the hash
-        .replace(/\n\s*(#{1,6})(?!\s)/g, "\n$1 ")
-        // Fix bold formatting
-        .replace(/\*\*(?!\s)(.*?)(?<!\s)\*\*/g, "**$1**")
-        // Fix italic formatting 
-        .replace(/\*(?!\s|\*)(.*?)(?<!\s|\*)\*/g, "*$1*")
-        // Ensure proper code block formatting
-        .replace(/```(\w*)\n/g, "```$1\n")
-        // Improve spacing around blocks
-        .replace(/\n{3,}/g, "\n\n");
-        
-      if (messageContent.includes("Sources:")) {
-        const parts = messageContent.split(/Sources:\s*/i);
-        messageContent = parts[0].trim();
-        
-        const sourcesText = parts[1]?.trim();
-        if (sourcesText) {
-          const urlRegex = /(https?:\/\/[^\s\n"')]+)/g;
-          const allUrls = sourcesText.match(urlRegex);
-          
-          if (allUrls && allUrls.length > 0) {
-            sources = allUrls.map(url => url.trim());
-          }
-        }
-      }
-      
-      if (sources.length === 0) {
-        const citationRegex = /\[(\d+)\]/g;
-        const citations = [];
-        let match;
-        
-        while ((match = citationRegex.exec(messageContent)) !== null) {
-          citations.push(match[1]);
-        }
-        
-        if (citations.length > 0) {
-          const urlRegex = /(https?:\/\/[^\s\n"')]+)/g;
-          const allUrls = messageContent.match(urlRegex);
-          
-          if (allUrls && allUrls.length > 0) {
-            sources = allUrls.map(url => url.trim());
-            allUrls.forEach(url => {
-              messageContent = messageContent.replace(url, "");
-            });
-            
-            messageContent = messageContent
-              .replace(/\[\d+\]\s*\[\s*\]/g, "")
-              .replace(/\s{2,}/g, " ")
-              .replace(/\n\s*\n/g, "\n\n")
-              .trim();
-          }
-        }
-      }
-      
-      if (sources.length === 0) {
-        const urlRegex = /(https?:\/\/[^\s\n"')]+)/g;
-        const allUrls = messageContent.match(urlRegex);
-        
-        if (allUrls && allUrls.length > 0) {
-          sources = allUrls.map(url => url.trim());
-          
-          const lastParagraphRegex = /\n\s*([^\n]+)$/;
-          const lastParagraph = messageContent.match(lastParagraphRegex);
-          
-          if (lastParagraph && lastParagraph[1]) {
-            const lastParagraphText = lastParagraph[1];
-            const urlsInLastParagraph = lastParagraphText.match(urlRegex);
-            
-            if (urlsInLastParagraph && urlsInLastParagraph.length > 0) {
-              let newLastParagraph = lastParagraphText;
-              urlsInLastParagraph.forEach(url => {
-                newLastParagraph = newLastParagraph.replace(url, "");
-              });
-              
-              if (newLastParagraph.trim().length === 0) {
-                messageContent = messageContent.replace(lastParagraphRegex, "");
-              } else {
-                messageContent = messageContent.replace(lastParagraphRegex, "\n" + newLastParagraph.trim());
-              }
-            }
-          }
-        }
-      }
-      
-      if (sources.length > 0) {
-        sources = [...new Set(sources)].filter(url => {
-          return url && 
-            url.startsWith("http") && 
-            url.includes(".") &&
-            !url.endsWith(".") && 
-            !url.endsWith(",");
-        });
-        
-        sources = sources.map(url => url.replace(/[.,;:!?)]+$/, ""));
-        console.log("Final extracted sources:", sources);
-      }
-    }
-
-    console.log("Sources found in message:", sources.length, sources);
-    if (message.role === "assistant") {
-      console.log("Raw assistant message:", messageContent);
-    }
-
     return (
       <motion.div
         key={message.messageId}
         initial="hidden"
         animate="visible"
         variants={messageVariants}
-        className={`flex items-start gap-3 mb-8 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+        className="mb-8 w-full max-w-[95%] xs:max-w-[90%] sm:max-w-2xl md:max-w-3xl mx-auto overflow-hidden"
       >
-        {message.role !== "user" && (
-          <motion.div
-            className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#cc2b5e] to-[#753a88] flex items-center justify-center border border-white/10 shadow-lg"
-            whileHover={{ scale: 1.05 }}
-          >
-            {message.isVoice ? (
-              <BsChatLeftText className="w-4 h-4 text-white" />
-            ) : (
-              <HiSparkles className="w-4 h-4 text-white" />
-            )}
-          </motion.div>
-        )}
-
-        <div
-          className={`max-w-[85%] sm:max-w-[75%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-lg ${
-            message.role === "user"
-              ? "bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] text-white/90 border border-white/10"
-              : message.content.includes("Error:") || message.content.includes("⚠️")
-                ? "bg-red-900/20 text-slate-200 border border-red-500/30"
-                : "bg-[#1a1a1a] text-slate-200 border border-white/10"
-          } break-words`}
-        >
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="relative"
-          >
-            {message.isVoice && (
-              <div className="text-xs text-[#cc2b5e] mb-1">🎤 Voice Message</div>
-            )}
-            
-            <div 
-              className="prose prose-invert max-w-none overflow-auto"
-              style={{ wordBreak: 'break-word' }}
+        <div className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+          {message.role === "user" ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="bg-[#343541] rounded-3xl px-4 py-2 inline-block max-w-[80%] shadow-sm"
             >
-              <ReactMarkdown
-                key={message.messageId}
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  h1: ({ node, ...props }) => (
-                    <h1 className="text-2xl font-bold mt-6 mb-4 text-white" {...props} />
-                  ),
-                  h2: ({ node, ...props }) => (
-                    <h2 className="text-xl font-bold mt-5 mb-3 text-white" {...props} />
-                  ),
-                  h3: ({ node, ...props }) => (
-                    <h3 className="text-lg font-bold mt-4 mb-2 text-white" {...props} />
-                  ),
-                  h4: ({ node, ...props }) => (
-                    <h4 className="text-base font-bold mt-3 mb-2 text-white" {...props} />
-                  ),
-                  p: ({ node, ...props }) => (
-                    <p className="my-3 text-white/90 leading-relaxed" {...props} />
-                  ),
-                  ul: ({ node, ...props }) => (
-                    <ul className="list-disc list-outside pl-6 my-3 text-white/90" {...props} />
-                  ),
-                  ol: ({ node, ...props }) => (
-                    <ol className="list-decimal list-outside pl-6 my-3 text-white/90" {...props} />
-                  ),
-                  li: ({ node, ...props }) => (
-                    <li className="my-1 pl-1 text-white/90" {...props} />
-                  ),
-                  code: ({ node, inline, className, children, ...props }) => {
-                    const match = /language-(\w+)/.exec(className || "");
-                    const language = match ? match[1] : "";
-                    const id = `code-${message.messageId}`;
-
-                    return inline ? (
-                      <code
-                        className="bg-[#2d333b]/30 text-white/90 px-1 py-0.5 rounded font-mono text-sm"
-                        {...props}
-                      >
-                        {children}
-                      </code>
-                    ) : (
-                      <div className="relative my-4 rounded-md overflow-hidden border border-white/10">
-                        {language && (
-                          <div className="bg-[#2d333b] text-white/60 text-xs px-3 py-1 border-b border-white/10">
-                            {language}
-                          </div>
-                        )}
-                        <div 
-                          className="absolute right-2 top-2 cursor-pointer hover:bg-[#2d333b] p-1 rounded"
-                          onClick={() => copyToClipboard(String(children).replace(/\n$/, ""), id)}
-                        >
-                          {copyStatus[id] ? (
-                            <LuCopyCheck className="w-4 h-4 text-white/60" />
-                          ) : (
-                            <FaRegCopy className="w-4 h-4 text-white/60" />
-                          )}
-                        </div>
-                        <pre
-                          className="bg-[#1e1e1e] text-white/90 p-4 font-mono text-sm overflow-x-auto"
-                          {...props}
-                        >
-                          <code className={language ? `language-${language}` : ""}>
-                            {children}
-                          </code>
-                        </pre>
-                      </div>
-                    );
-                  },
-                  table: ({ node, ...props }) => (
-                    <div className="overflow-x-auto my-4">
-                      <table className="w-full border-collapse border border-white/10" {...props} />
-                    </div>
-                  ),
-                  thead: ({ node, ...props }) => (
-                    <thead className="bg-[#2d333b]/30" {...props} />
-                  ),
-                  tbody: ({ node, ...props }) => (
-                    <tbody {...props} />
-                  ),
-                  tr: ({ node, ...props }) => (
-                    <tr className="border-b border-white/10" {...props} />
-                  ),
-                  th: ({ node, ...props }) => (
-                    <th
-                      className="px-4 py-2 text-left font-semibold text-white/90 border border-white/10"
-                      {...props}
-                    />
-                  ),
-                  td: ({ node, ...props }) => (
-                    <td
-                      className="px-4 py-2 text-white/90 border border-white/10"
-                      {...props}
-                    />
-                  ),
-                  a: ({ node, ...props }) => (
-                    <a
-                      className="text-blue-400 hover:underline"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      {...props}
-                    />
-                  ),
-                  blockquote: ({ node, ...props }) => (
-                    <blockquote
-                      className="border-l-4 border-white/20 pl-4 my-3 italic text-white/80"
-                      {...props}
-                    />
-                  )
-                }}
-              >
-                {messageContent}
-              </ReactMarkdown>
-              
-              {imageUrl && (
-                <div className="mt-4">
-                  <ImageWithLoading src={imageUrl} alt="Generated image" />
-                </div>
-              )}
-              
-              {sources.length > 0 && !messageContent.includes("Generated image:") && (
-                <div className="mt-4 pt-3 border-t border-white/10">
-                  <div 
-                    className="text-sm text-white/70 mb-2 font-medium flex items-center gap-2 cursor-pointer hover:text-white/90 transition-colors"
-                    onClick={() => toggleSourcesExpansion(message.messageId)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
-                    </svg>
-                    Sources: <span className="text-xs ml-1">({sources.length})</span>
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      className={`h-4 w-4 transition-transform ${expandedSources[message.messageId] ? "rotate-180" : ""}`} 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                  {expandedSources[message.messageId] && (
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {sources.map((source, i) => {
-                        const domainMatch = source.match(/^https?:\/\/(?:www\.)?([^\/]+)/);
-                        const domain = domainMatch ? domainMatch[1] : "website";
-                        
-                        return (
-                          <a 
-                            key={i} 
-                            href={source} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors px-2 py-1 rounded-md border border-white/10"
-                            title={source}
-                          >
-                            <div className="w-4 h-4 rounded-sm overflow-hidden flex-shrink-0 bg-gray-800 flex items-center justify-center">
-                              <img 
-                                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} 
-                                alt=""
-                                className="w-4 h-4 object-contain"
-                                onError={(e) => {
-                                  e.target.onerror = null; 
-                                  e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23aaaaaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='8' x2='12' y2='16'%3E%3C/line%3E%3Cline x1='8' y1='12' x2='16' y2='12'%3E%3C/line%3E%3C/svg%3E";
-                                }}
-                              />
-                            </div>
-                            <span className="text-xs text-white/80 truncate max-w-[100px]">
-                              {domain}
-                            </span>
-                          </a>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </motion.div>
+              <MessageContentDisplay 
+                content={message.content} 
+                imageUrl={message.imageUrl} 
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="w-full max-w-[95%] xs:max-w-[90%] sm:max-w-2xl md:max-w-3xl overflow-wrap break-word"
+            >
+              <MessageContentDisplay 
+                content={message.content} 
+                imageUrl={message.imageUrl} 
+              />
+            </motion.div>
+          )}
         </div>
-
-        {message.role === "user" && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-white/10 shadow-lg">
-            {message.isVoice ? (
-              <BsChatLeftText className="w-4 h-4 text-[#FAAE7B]" />
-            ) : (
-              <FiUser className="w-4 h-4 text-[#FAAE7B]" />
-            )}
-          </div>
-        )}
       </motion.div>
     );
   };
@@ -799,97 +489,6 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     });
   };
 
-  const ImageWithLoading = ({ src, alt }) => {
-    const [status, setStatus] = useState("loading");
-    const [retryCount, setRetryCount] = useState(0);
-    const maxRetries = 5;
-    const retryTimeoutRef = useRef(null);
-    
-    useEffect(() => {
-      const preloadImage = () => {
-        setStatus("loading");
-        setRetryCount(0);
-        
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-        }
-        
-        const img = new Image();
-        
-        img.onload = () => {
-          setStatus("success");
-        };
-        
-        img.onerror = () => {
-          if (retryCount < maxRetries) {
-            const delay = 1000 * Math.pow(1.5, retryCount);
-            console.log(`Image load failed. Retry ${retryCount + 1}/${maxRetries} in ${delay}ms`);
-            
-            retryTimeoutRef.current = setTimeout(() => {
-              setRetryCount((prev) => prev + 1);
-              img.src = src + `?retry=${Date.now()}`;
-            }, delay);
-          } else {
-            setStatus("error");
-          }
-        };
-        
-        img.src = src + `?t=${Date.now()}`;
-      };
-      
-      preloadImage();
-      
-      return () => {
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-        }
-      };
-    }, [src, retryCount, maxRetries]);
-    
-    const handleRetry = () => {
-      setRetryCount(0);
-      setStatus("loading");
-    };
-    
-    return (
-      <div className="relative mt-3">
-        {status === "loading" && (
-          <div className="flex items-center justify-center bg-gray-800 rounded-lg min-h-[200px] w-full">
-            <div className="flex flex-col items-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#cc2b5e]"></div>
-              <div className="text-sm text-gray-400 mt-2">
-                Loading image{retryCount > 0 ? ` (retry ${retryCount + 1}/${maxRetries})` : "..."}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {status === "error" && (
-          <div className="flex items-center justify-center bg-gray-800 rounded-lg min-h-[200px] w-full">
-            <div className="text-center text-gray-400">
-              <div className="text-red-400 text-2xl mb-2">⚠️</div>
-              <div>Failed to load image after multiple attempts</div>
-              <button 
-                onClick={handleRetry}
-                className="text-blue-400 text-xs mt-2 block hover:underline"
-              >
-                Try again
-              </button>
-            </div>
-          </div>
-        )}
-        
-        {status === "success" && (
-          <img 
-            src={src}
-            alt={alt}
-            className="rounded-lg max-w-full object-contain max-h-[400px]"
-          />
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className={`flex-1 flex flex-col relative h-screen bg-[#0a0a0a] overflow-hidden ${isOpen ? "lg:ml-0" : "lg:ml-0"} transition-all duration-300`}>
       <div className="sticky top-0 z-20 px-3 sm:px-4 py-3 sm:py-4 flex items-center bg-[#0a0a0a]/80 backdrop-blur-lg h-[60px]">
@@ -922,7 +521,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex justify-start"
+                className="flex justify-start w-full max-w-[95%] xs:max-w-[90%] sm:max-w-2xl md:max-w-3xl mx-auto"
               >
                 <div className="flex items-center space-x-2 px-4 py-3 rounded-xl bg-[#1a1a1a] border border-white/10 shadow-lg">
                   <motion.span
@@ -998,6 +597,18 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           onStopResponse={stopSpeaking}
         />
       </div>
+
+      {isGeneratingMedia && (
+        <MediaGenerationIndicator 
+          generatingMediaType={generatingMediaType}
+        />
+      )}
+
+      {isMediaLoading && (
+        <MediaLoadingAnimation 
+          mediaType={mediaLoadingType}
+        />
+      )}
     </div>
   );
 }

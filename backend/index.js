@@ -31,7 +31,6 @@ app.use(cookieParser());
 app.use(
   cors({
     origin: [
-      "https://smith-frontend.vercel.app",
       "http://localhost:5173",
       "http://localhost:5174",
     ],
@@ -72,24 +71,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-const startServer = async () => {
-  try {
-    await connectDB();
-    if (process.env.NODE_ENV !== "production") {
-      const PORT = process.env.PORT || 5001;
-      app.listen(PORT, () => {
-        console.log(`✨ Server running locally on port ${PORT}`);
-      });
-    } else {
-      console.log("✨ Server deployed to Vercel");
-    }
-  } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
-  }
-};
+const PORT=process.env.PORT
 
-startServer();
-
-module.exports = app; // Export for Vercel
+app.listen(PORT, () => {
+  console.log(`server is running on ${PORT}`);
+  connectDB();
+});

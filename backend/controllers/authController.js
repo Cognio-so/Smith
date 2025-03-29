@@ -2,6 +2,7 @@ const User = require("../model/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const passport = require('../lib/passport');
+const { generateToken } = require('../lib/utils');
 
 const Signup = async (req, res) => {
   const { name, email, password } = req.body;
@@ -45,13 +46,27 @@ const Login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    console.log(`Login attempt for email: ${email}`);
+    
+    if (!email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "User not found" });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
 
-    const isPasswordCorrect = await bcrypt.compare(password, user.password);
-    if (!isPasswordCorrect) return res.status(400).json({ message: "Invalid password" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
 
+    console.log("Found user, generating token...");
+    
     generateToken(user._id, res);
+    
+    console.log("Token generated successfully");
 
     res.status(200).json({
       _id: user._id,
@@ -59,8 +74,11 @@ const Login = async (req, res) => {
       email: user.email,
     });
   } catch (error) {
-    console.log("Error in login controller", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Error in login controller:", error);
+    res.status(500).json({ 
+      message: "Internal Server Error",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 };
 
@@ -68,8 +86,8 @@ const Logout = async (req, res) => {
   try {
     res.cookie('jwt', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Secure only in production
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Cross-site in prod
+      secure:true,
+      sameSite: 'none',
       path: '/',
       maxAge: 0
     });
@@ -98,43 +116,54 @@ const getProfile = async (req, res) => {
   }
 };
 
-const generateToken = (userId, res) => {
-  const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
-    expiresIn: '30d'
-  });
 
-  res.cookie('jwt', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // Secure in production
-    sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Cross-site in prod
-    path: '/',
-    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-  });
-};
+const googleAuth = passport.authenticate('google', {
+  scope: ['profile', 'email'],
+  session: false
+});
 
-// Google auth callback handler
-const googleCallback = (req, res) => {
-  try {
-    if (!req.user || !req.user.token) {
-      throw new Error('Google authentication failed');
+const googleCallback = async (req, res, next) => {
+  passport.authenticate('google', {
+    session: false,
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=auth_failed`
+  }, async (err, userObj) => {
+    if (err || !userObj || !userObj.token) {
+      console.error('Google auth error:', err);
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
     }
 
-    // Set the JWT cookie
-    res.cookie('jwt', req.user.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-      path: '/',
-      maxAge: 30 * 24 * 60 * 60 * 1000
-    });
+    try {
+      // Always use consistent cookie settings regardless of environment
+      res.cookie('jwt', userObj.token, {
+        httpOnly: true,
+        secure: true,  // Always true for cross-site
+        sameSite: 'none',  // Required for cross-site cookies
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60 * 1000
+      });
 
-    // Redirect with token as query param for fallback
-    const redirectUrl = `${process.env.FRONTEND_URL || 'https://smith-frontend.vercel.app'}/dashboard?token=${req.user.token}`;
-    res.redirect(redirectUrl);
-  } catch (error) {
-    console.error('Google auth callback error:', error);
-    res.redirect(`${process.env.FRONTEND_URL || 'https://smith-frontend.vercel.app'}/login?error=auth_failed`);
-  }
+      // Enhanced error handling for user info
+      const userInfo = encodeURIComponent(JSON.stringify({
+        _id: userObj.user._id,  // Fix: Use _id to match your data structure
+        name: userObj.user.name,
+        email: userObj.user.email,
+        profilePicture: userObj.user.profilePicture
+      }));
+      
+      res.redirect(`${process.env.FRONTEND_URL}/chat?auth=google&user=${userInfo}`);
+    } catch (error) {
+      console.error('Google auth callback error:', error);
+      res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
+    }
+  })(req, res, next);
 };
 
-module.exports = { Signup, Login, Logout, checkAuth, getProfile, googleCallback };
+module.exports = { 
+  Signup, 
+  Login, 
+  Logout, 
+  checkAuth, 
+  getProfile, 
+  googleAuth,
+  googleCallback 
+};
