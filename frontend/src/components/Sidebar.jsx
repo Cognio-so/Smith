@@ -4,8 +4,9 @@ import { IoChatboxEllipses } from "react-icons/io5"
 import { BsLayoutSidebar } from "react-icons/bs"
 import { useAuth } from "../context/AuthContext"
 import { HiMenuAlt2 } from "react-icons/hi"
-import { Link } from "react-router-dom"
 import Settings from './SettingsPage'
+
+const API_URL = import.meta.env.VITE_BACKEND_URL
 
 const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, isOpen = false }, ref) => {
   const { user, logout } = useAuth()
@@ -49,7 +50,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
             return;
         }
 
-        const response = await fetch('http://localhost:5000/api/chats/save', {
+        const response = await fetch(`${API_URL}/api/chats/save`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -111,7 +112,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
   const refreshChatHistory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/chats/history/all', {
+      const response = await fetch(`${API_URL}/api/chats/history/all`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -147,7 +148,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/chats/${chatId}`, {
+      const response = await fetch(`${API_URL}/api/chats/${chatId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

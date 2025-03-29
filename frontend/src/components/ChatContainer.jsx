@@ -439,7 +439,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
-              className="bg-[#343541] rounded-xl px-6 pt-4 pb-4 inline-block max-w-[80%] shadow-sm text-white"
+              className="bg-[#343541] rounded-3xl px-4 pt-4 pb-2 inline-block max-w-[80%] shadow-sm text-white"
             >
               <MessageContentDisplay 
                 content={message.content} 

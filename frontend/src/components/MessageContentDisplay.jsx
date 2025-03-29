@@ -252,7 +252,7 @@ const MessageContent = ({ content }) => {
   return (
     <div className={`message-content break-words ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
       {cleanedText && (
-        <div className={`prose ${theme === 'dark' ? 'prose-invert' : ''} prose-sm sm:prose-base max-w-none overflow-hidden space-y-6`}>
+        <div className={`prose ${theme === 'dark' ? 'prose-invert' : ''} prose-sm sm:prose-base max-w-none overflow-hidden`}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -340,28 +340,28 @@ const MessageContent = ({ content }) => {
                 <td {...props} className={`border ${theme === 'dark' ? 'border-gray-600' : 'border-gray-300'} px-4 py-2`} />
               ),
               p: ({node, ...props}) => (
-                <p {...props} className="mb-6" />
+                <p {...props} className="mb-4" />
               ),
               h1: ({node, ...props}) => (
-                <h1 {...props} className="mt-8 mb-4" />
+                <h1 {...props} className="text-2xl font-bold mt-6 mb-4" />
               ),
               h2: ({node, ...props}) => (
-                <h2 {...props} className="mt-8 mb-4" />
+                <h2 {...props} className="text-xl font-bold mt-6 mb-3" />
               ),
               h3: ({node, ...props}) => (
-                <h3 {...props} className="mt-6 mb-4" />
+                <h3 {...props} className="text-lg font-bold mt-4 mb-2" />
               ),
               ul: ({node, ...props}) => (
-                <ul {...props} className="my-6 pl-6 space-y-3" />
+                <ul {...props} className="list-disc pl-6 my-4 space-y-2" />
               ),
               ol: ({node, ...props}) => (
-                <ol {...props} className="my-6 pl-6 space-y-3" />
+                <ol {...props} className="list-decimal pl-6 my-4 space-y-2" />
               ),
               li: ({node, ...props}) => (
-                <li {...props} className="mb-3" />
+                <li {...props} className="ml-4 pl-1" />
               ),
               strong: ({node, ...props}) => (
-                <strong {...props} className="font-bold text-white" />
+                <strong {...props} className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`} />
               ),
             }}
           >
