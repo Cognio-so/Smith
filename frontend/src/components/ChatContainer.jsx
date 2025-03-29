@@ -311,7 +311,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
     }
   }, [messages, onUpdateMessages]);
 
-  const addMessage = async (content, role, isStreaming = false, isChunkOnly = false) => {
+  const addMessage = async (content, role, isStreaming = false, isChunkOnly = false, isWebSearch = false) => {
     const safeContent = typeof content === "string" 
       ? content 
       : (content && typeof content === "object" 
@@ -364,6 +364,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
             content: processedContent,
             role,
             timestamp: new Date().toISOString(),
+            isWebSearch: isWebSearch,
             ...(imageUrl && { imageUrl })
           };
           updatedMessages = [...prevMessages, newMessage];
@@ -374,6 +375,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
           content: processedContent,
           role,
           timestamp: new Date().toISOString(),
+          isWebSearch: isWebSearch,
           ...(imageUrl && { imageUrl })
         };
         updatedMessages = [...prevMessages, newMessage];
@@ -426,15 +428,18 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
         initial="hidden"
         animate="visible"
         variants={messageVariants}
-        className="mb-8 w-full max-w-[95%] xs:max-w-[90%] sm:max-w-2xl md:max-w-3xl mx-auto overflow-hidden"
+        className={`mb-12 w-full max-w-[95%] xs:max-w-[90%] sm:max-w-2xl md:max-w-3xl mx-auto overflow-hidden ${message.isWebSearch ? 'web-search-result' : ''}`}
       >
+        {message.isWebSearch && message.role === "assistant" && (
+          <div className="text-xs text-[#cc2b5e] mb-1">Web Search Result</div>
+        )}
         <div className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
           {message.role === "user" ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
-              className="bg-[#343541] rounded-xl px-4 pt-2 pb-1 inline-block max-w-[80%] shadow-sm text-white"
+              className="bg-[#343541] rounded-xl px-6 pt-4 pb-4 inline-block max-w-[80%] shadow-sm text-white"
             >
               <MessageContentDisplay 
                 content={message.content} 
@@ -497,7 +502,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
   const getUniqueMessages = () => {
     const seen = new Set();
     return messages.filter((msg) => {
-      const key = `${msg.role}-${msg.content}`;
+      const key = msg.messageId;
       if (seen.has(key)) {
         console.log("Duplicate message filtered:", msg.content);
         return false;

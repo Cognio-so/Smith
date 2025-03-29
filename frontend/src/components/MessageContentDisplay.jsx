@@ -7,7 +7,6 @@ import { FaDownload, FaRegCopy } from 'react-icons/fa';
 import { TbCopyCheckFilled } from 'react-icons/tb';
 import { ThemeContext } from '../App';
 import ModernAudioPlayer from './ModernAudioPlayer';
-import rehypeRaw from 'rehype-raw';
 
 // Helper functions
 const extractMediaUrls = (content) => {
@@ -253,10 +252,9 @@ const MessageContent = ({ content }) => {
   return (
     <div className={`message-content break-words ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
       {cleanedText && (
-        <div className="whitespace-pre-wrap">
+        <div className={`prose ${theme === 'dark' ? 'prose-invert' : ''} prose-sm sm:prose-base max-w-none overflow-hidden space-y-6`}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
             components={{
               code({ node, inline, className, children, ...props }) {
                 const match = /language-(\w+)/.exec(className || '');
@@ -275,8 +273,8 @@ const MessageContent = ({ content }) => {
                 };
 
                 return !inline && match ? (
-                  <div className="code-block relative overflow-hidden rounded-md">
-                    <div className="code-header flex justify-between items-center bg-[#2d2d2d] px-4 py-2 text-white text-xs">
+                  <div className="code-block">
+                    <div className="code-header">
                       <span className="code-lang">{match[1]}</span>
                       <button 
                         onClick={() => copyToClipboard(codeString)}
@@ -284,6 +282,7 @@ const MessageContent = ({ content }) => {
                         title={copied ? "Copied!" : "Copy code"}
                       >
                         {copied ? <TbCopyCheckFilled className="h-4 w-4" /> : <FaRegCopy className="h-4 w-4" />}
+                        <span className="ml-1">Copy</span>
                       </button>
                     </div>
                     <SyntaxHighlighter
@@ -295,9 +294,7 @@ const MessageContent = ({ content }) => {
                         padding: '0.75rem',
                         background: '#1e1e1e',
                         fontSize: '14px',
-                        borderRadius: '0 0 6px 6px',
-                        position: 'relative',
-                        zIndex: 1  // Ensure proper z-index
+                        borderRadius: '0 0 6px 6px'
                       }}
                       codeTagProps={{
                         style: {
@@ -307,7 +304,7 @@ const MessageContent = ({ content }) => {
                       }}
                       wrapLines={false}
                       wrapLongLines={false}
-                      className="code-syntax !bg-[#1e1e1e]"
+                      className="code-syntax"
                       {...props}
                     >
                       {codeString}
@@ -342,10 +339,30 @@ const MessageContent = ({ content }) => {
               td: ({ node, ...props }) => (
                 <td {...props} className={`border ${theme === 'dark' ? 'border-gray-600' : 'border-gray-300'} px-4 py-2`} />
               ),
-              p: ({node, ...props}) => <p className="mb-2" {...props} />,
-              h1: ({node, ...props}) => <h1 className="mb-4" {...props} />,
-              h2: ({node, ...props}) => <h2 className="mb-4" {...props} />,
-              h3: ({node, ...props}) => <h3 className="mb-4" {...props} />,
+              p: ({node, ...props}) => (
+                <p {...props} className="mb-6" />
+              ),
+              h1: ({node, ...props}) => (
+                <h1 {...props} className="mt-8 mb-4" />
+              ),
+              h2: ({node, ...props}) => (
+                <h2 {...props} className="mt-8 mb-4" />
+              ),
+              h3: ({node, ...props}) => (
+                <h3 {...props} className="mt-6 mb-4" />
+              ),
+              ul: ({node, ...props}) => (
+                <ul {...props} className="my-6 pl-6 space-y-3" />
+              ),
+              ol: ({node, ...props}) => (
+                <ol {...props} className="my-6 pl-6 space-y-3" />
+              ),
+              li: ({node, ...props}) => (
+                <li {...props} className="mb-3" />
+              ),
+              strong: ({node, ...props}) => (
+                <strong {...props} className="font-bold text-white" />
+              ),
             }}
           >
             {cleanedText}

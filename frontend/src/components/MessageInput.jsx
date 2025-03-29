@@ -129,7 +129,7 @@ function MessageInput({ onSendMessage, isLoading }) {
               ];
 
               const endpoint = useAgent 
-                ? `${PYTHON_API_URL}/api/react-search` 
+                ? `${PYTHON_API_URL}/api/react-search-streaming` 
                 : `${PYTHON_API_URL}/api/chat`;
 
               const response = await fetch(endpoint, {
@@ -163,7 +163,7 @@ function MessageInput({ onSendMessage, isLoading }) {
                 
                 const assistantContent = responseData.message?.content || "No response content";
                 setOverlayMessages(prev => [...prev, { type: 'assistant', content: assistantContent }]);
-                onSendMessage(assistantContent, "assistant");
+                onSendMessage(assistantContent, "assistant", false, false, useAgent);
 
                 if (!isMuted) {
                   setIsAISpeaking(true);
@@ -244,7 +244,7 @@ function MessageInput({ onSendMessage, isLoading }) {
       ];
       
       const endpoint = useAgent 
-        ? `${PYTHON_API_URL}/api/react-search` 
+        ? `${PYTHON_API_URL}/api/react-search-streaming` 
         : `${PYTHON_API_URL}/api/chat`;
 
       const response = await fetch(endpoint, {
@@ -270,6 +270,7 @@ function MessageInput({ onSendMessage, isLoading }) {
   
       const reader = response.body.getReader();
       let accumulatedResponse = "";
+      let messageCompleted = false;
   
       try {
         while (true) {
@@ -293,7 +294,7 @@ function MessageInput({ onSendMessage, isLoading }) {
               else if (jsonData.type === "chunk") {
                 // Send each chunk immediately without accumulating
                 if (currentRequestRef.current === requestId) {
-                  onSendMessage(jsonData.chunk || "", "assistant", true, true);
+                  onSendMessage(jsonData.chunk || "", "assistant", true, true, useAgent);
                 }
               }
               else if (jsonData.type === "result") {
@@ -301,8 +302,9 @@ function MessageInput({ onSendMessage, isLoading }) {
                 if (jsonData.message?.content) {
                   accumulatedResponse = jsonData.message.content;
                   
-                  if (currentRequestRef.current === requestId) {
-                    onSendMessage(accumulatedResponse, "assistant", false);
+                  if (currentRequestRef.current === requestId && !messageCompleted) {
+                    messageCompleted = true;
+                    onSendMessage(accumulatedResponse, "assistant", false, false, useAgent);
                   }
                 }
                 
@@ -312,9 +314,9 @@ function MessageInput({ onSendMessage, isLoading }) {
                 }
               }
               else if (jsonData.type === "done") {
-                // Stream is complete
-                if (currentRequestRef.current === requestId) {
-                  onSendMessage(accumulatedResponse, "assistant", false);
+                // Stream is complete - ONLY send message if not already sent by result
+                if (currentRequestRef.current === requestId && !messageCompleted) {
+                  onSendMessage(accumulatedResponse, "assistant", false, false, useAgent);
                 }
                 
                 // Store thread_id for future requests

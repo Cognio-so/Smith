@@ -6,7 +6,7 @@ import LoadingSpinner from './components/LoadingSpinner'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Dashboard from './pages/Dashboard'
 import SettingPage from './components/SettingsPage'
-import HomePage from './pages/Homepage'
+import HomePage from './pages/HomePage'
 
 // Create Theme Context
 export const ThemeContext = createContext();
