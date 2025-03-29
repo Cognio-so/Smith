@@ -58,7 +58,7 @@ app.get("/", (req, res) => {
 
 app.use("/auth", authRoutes);
 app.use("/api/ai", aiRoutes);
-app.use("/api/chat", chatRoutes);
+app.use("/api/chats", chatRoutes);
 app.use("/api/email", emailRoutes);
 
 // Error handling middleware
