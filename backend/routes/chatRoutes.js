@@ -8,7 +8,7 @@ const {
     updateChat 
 } = require('../controllers/chatController');
 
-// Base route is /api/chats
+// Base route is /api/chat
 
 // Get chat history - ensure this comes before :chatId route
 router.get('/history/all', protectRoutes, getChatHistory);

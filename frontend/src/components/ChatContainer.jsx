@@ -44,7 +44,7 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       try {
         const token = localStorage.getItem("token");
         const response = await fetch(
-          `http://localhost:5000/api/chats/${activeChat.id}`,
+          `http://localhost:5000/api/chat/${activeChat.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -158,8 +158,8 @@ function ChatContainer({ activeChat, onUpdateChatTitle, isOpen, onChatSaved, onU
       const isTemporaryChat = chatIdRef.current.startsWith("temp_");
       
       const endpoint = isTemporaryChat 
-        ? "http://localhost:5000/api/chats/save"
-        : `http://localhost:5000/api/chats/${chatIdRef.current}/update`;
+        ? "http://localhost:5000/api/chat/save"
+        : `http://localhost:5000/api/chat/${chatIdRef.current}/update`;
       
       const method = isTemporaryChat ? "POST" : "PUT";
 

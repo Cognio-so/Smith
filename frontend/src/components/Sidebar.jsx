@@ -50,7 +50,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
             return;
         }
 
-        const response = await fetch(`${API_URL}/api/chats/save`, {
+        const response = await fetch(`${API_URL}/api/chat/save`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -112,7 +112,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
   const refreshChatHistory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/chats/history/all`, {
+      const response = await fetch(`${API_URL}/api/chat/history/all`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -148,7 +148,7 @@ const Sidebar = forwardRef(({ chats, activeChat, setActiveChat, createNewChat, i
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/chats/${chatId}`, {
+      const response = await fetch(`${API_URL}/api/chat/${chatId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
